@@ -106,8 +106,11 @@ export default function AdminAppearancePage() {
     setDirty(true);
   };
 
+  // While an upload runs the field holds a local blob: preview URL, which the server rightly rejects.
+  const uploading = Object.values(progress).some((v) => v !== null);
+
   const handleSave = async () => {
-    if (!profile || !token) return;
+    if (!profile || !token || uploading) return;
     for (const [label, value] of [['Instagram', profile.instagram_url], ['TikTok', profile.tiktok_url], ['YouTube', profile.youtube_url]] as const) {
       if (value?.trim() && !validateUrl(value)) return notify.error(t('look.invalidUrl', { label }), { description: t('look.urlFormat') });
     }
@@ -403,7 +406,7 @@ export default function AdminAppearancePage() {
             <span className="flex items-center gap-2 text-sm">
               <span className="h-2 w-2 animate-pulse rounded-full bg-warning" /> {t('look.unsaved')}
             </span>
-            <Button variant="brand" onClick={handleSave} disabled={saving}>
+            <Button variant="brand" onClick={handleSave} disabled={saving || uploading}>
               {saving ? <Loader2 className="animate-spin" /> : <Save />} {t('common.save')}
             </Button>
           </motion.div>

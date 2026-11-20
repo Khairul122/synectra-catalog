@@ -12,7 +12,10 @@ class ApiError extends Error {
 async function handleResponse<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new ApiError(response.status, data.error?.code ?? data.code, data.message);
+    // Validation failures carry per-field messages; show those instead of the generic "Validation error".
+    const details = Array.isArray(data.error?.details) ? (data.error.details as { message?: string }[]) : [];
+    const fieldMessages = details.map((d) => d.message).filter(Boolean).join(', ');
+    throw new ApiError(response.status, data.error?.code ?? data.code, fieldMessages || data.message);
   }
   return data as T;
 }
