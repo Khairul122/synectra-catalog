@@ -1,5 +1,6 @@
 import { orderRepository } from '../repositories/order.repository';
 import { storageRepository } from '../repositories/storage.repository';
+import { profileRepository } from '../repositories/profile.repository';
 import { resendAdapter } from '../infrastructure/resend.adapter';
 import { dokuAdapter } from '../infrastructure/doku.adapter';
 import type { DokuNotificationDto } from '../dtos';
@@ -65,9 +66,10 @@ export class FulfillmentService {
     let downloads: Array<{ title: string; url: string }>;
     try {
       downloads = await Promise.all(
-        products.map(async (product) => ({
+        products.map(async (product, i) => ({
           title: product.title,
           url: await deliveryUrl(product),
+          price: paidOrder.items?.[i]?.price ?? (products.length === 1 ? paidOrder.amount : product.price),
         })),
       );
     } catch (error) {
@@ -78,12 +80,23 @@ export class FulfillmentService {
       throw error;
     }
 
+    // The receipt names the store; a profile lookup failure must not block delivery.
+    const storeName = await profileRepository
+      .getProfile()
+      .then((p) => p?.display_name || p?.business_name || undefined)
+      .catch(() => undefined);
+
     try {
       await resendAdapter.sendProductDeliveryEmail({
         to: paidOrder.buyer_email,
         buyerName: paidOrder.buyer_name,
         invoiceId: paidOrder.invoice_id,
         downloads,
+        storeName,
+        buyerPhone: paidOrder.buyer_phone,
+        paidAt: paidOrder.updated_at ? new Date(paidOrder.updated_at) : undefined,
+        paymentMethod: paidOrder.payment_method === 'QRIS_MANUAL' ? 'QRIS' : 'Pembayaran online',
+        total: paidOrder.amount,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Gagal mengirim email fulfillment';

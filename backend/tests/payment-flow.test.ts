@@ -59,8 +59,8 @@ describe('payment flow', () => {
     await fulfillmentService.processNotification(notification);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].downloads).toEqual([
-      { title: 'Asset', url: 'https://example.com/asset.zip' },
-      { title: 'Second', url: 'https://example.com/second.zip' },
+      { title: 'Asset', url: 'https://example.com/asset.zip', price: 25000 },
+      { title: 'Second', url: 'https://example.com/second.zip', price: 10000 },
     ]);
   });
 
