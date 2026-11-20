@@ -1,4 +1,4 @@
-import type { Profile, Link, Product, Order, OrderStatus, AdminAnalytics } from '@/types';
+import type { Profile, Link, Product, Order, OrderStatus, AdminAnalytics, CheckoutPayload } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -30,9 +30,9 @@ export const api = {
   },
 
   async checkout(
-    dto: { productIds: string[]; buyerName: string; buyerEmail: string },
+    dto: CheckoutPayload,
     idempotencyKey?: string,
-  ): Promise<{ invoiceId: string; paymentUrl: string }> {
+  ): Promise<{ invoiceId: string; paymentUrl: string | null }> {
     const res = await fetch(`${API_BASE}/checkout`, {
       method: 'POST',
       headers: {
@@ -172,6 +172,14 @@ export const api = {
     });
     const data = await handleResponse<{ data: Profile }>(res);
     return data.data;
+  },
+
+  async adminConfirmOrder(token: string, invoiceId: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(invoiceId)}/confirm`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await handleResponse(res);
   },
 
   async adminGetOrders(token: string, status?: OrderStatus) {

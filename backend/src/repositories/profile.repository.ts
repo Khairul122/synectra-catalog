@@ -38,6 +38,8 @@ export class ProfileRepository {
         | 'instagram_url'
         | 'tiktok_url'
         | 'youtube_url'
+        | 'qris_image_url'
+        | 'whatsapp_number'
         | 'theme_color'
       >
     >,

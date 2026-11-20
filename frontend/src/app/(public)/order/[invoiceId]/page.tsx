@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import Image from 'next/image';
-import { ArrowLeft, Copy, ExternalLink, FileSearch, Loader2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, FileSearch, Loader2, MessageCircle, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '@/services/api';
 import { formatRupiah } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -82,6 +82,19 @@ export default function OrderStatusPage() {
   }, [paid, loadLinks]);
 
   const items = order?.items?.length ? order.items : order?.product ? [order.product] : [];
+  const manual = order?.status === 'PENDING' ? order.manual_payment : null;
+  const waUrl =
+    order && manual?.whatsapp_number
+      ? `https://wa.me/${manual.whatsapp_number}?text=${encodeURIComponent(
+          t('order.waMessage', {
+            invoice: order.invoice_id,
+            name: order.buyer_name,
+            products: items.map((item) => item.title).join(', '),
+            total: formatRupiah(order.amount),
+            url: typeof window === 'undefined' ? '' : window.location.href,
+          }),
+        )}`
+      : null;
   const formatDate = (iso: string) =>
     new Intl.DateTimeFormat(locale === 'id' ? 'id-ID' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
@@ -216,6 +229,30 @@ export default function OrderStatusPage() {
                 <Button asChild variant="outline" size="lg" className="w-full">
                   <Link href="/">{t('cart.continue')}</Link>
                 </Button>
+              )}
+              {manual && (
+                <section aria-labelledby="qris-title" className="space-y-4 text-center">
+                  <h2 id="qris-title" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('order.qrisTitle')}</h2>
+                  {manual.qris_image_url && (
+                    <img src={manual.qris_image_url} alt={t('order.qrisAlt')} className="mx-auto w-full max-w-[280px] rounded-2xl border bg-white p-3" />
+                  )}
+                  <ol className="space-y-1.5 text-left text-sm">
+                    {[t('order.qrisStep1'), t('order.qrisStep2', { amount: formatRupiah(order.amount) }), t('order.qrisStep3')].map((step, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">{i + 1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                  {waUrl && (
+                    <Button asChild variant="brand" size="xl" className="w-full">
+                      <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle /> {t('order.qrisConfirm')}
+                      </a>
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground">{t('order.qrisWait')}</p>
+                </section>
               )}
               {order.status === 'PENDING' && (
                 <>

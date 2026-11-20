@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { Check, ImageIcon, Instagram, Loader2, Music2, Palette, Save, Store, Youtube } from 'lucide-react';
+import { Check, ImageIcon, Instagram, Loader2, MessageCircle, Music2, Palette, QrCode, Save, Store, Youtube } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
 import type { Profile } from '@/types';
@@ -37,6 +37,8 @@ const DEFAULT_PROFILE: Profile = {
   tiktok_url: null,
   youtube_url: null,
   theme_color: '#00A8E8',
+  qris_image_url: null,
+  whatsapp_number: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -63,7 +65,7 @@ export default function AdminAppearancePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [progress, setProgress] = useState<{ avatar: number | null; cover: number | null }>({ avatar: null, cover: null });
+  const [progress, setProgress] = useState<{ avatar: number | null; cover: number | null; qris: number | null }>({ avatar: null, cover: null, qris: null });
 
   useEffect(() => {
     if (!token) return;
@@ -93,9 +95,15 @@ export default function AdminAppearancePage() {
     for (const [label, value] of [['Instagram', profile.instagram_url], ['TikTok', profile.tiktok_url], ['YouTube', profile.youtube_url]] as const) {
       if (value?.trim() && !validateUrl(value)) return toast.error(t('look.invalidUrl', { label }), { description: t('look.urlFormat') });
     }
+    // Same rule as the server: Indonesian mobile number.
+    const wa = (profile.whatsapp_number ?? '').replace(/[\s.-]/g, '');
+    if (wa && !/^(\+?62|0)8\d{7,12}$/.test(wa)) return toast.error(t('look.invalidWa'), { description: t('look.whatsappHint') });
     setSaving(true);
     try {
       const updated = await api.adminUpdateProfile(token, profile.id, {
+        // Empty string clears the value server-side (turns QRIS off).
+        qris_image_url: profile.qris_image_url ?? '',
+        whatsapp_number: wa,
         business_name: profile.business_name ?? undefined,
         display_name: profile.display_name ?? undefined,
         bio: profile.bio ?? undefined,
@@ -116,11 +124,11 @@ export default function AdminAppearancePage() {
     }
   };
 
-  const upload = async (file: File, kind: 'avatar' | 'cover') => {
+  const upload = async (file: File, kind: 'avatar' | 'cover' | 'qris') => {
     if (!token) return;
     if (!file.type.startsWith('image/')) return toast.error(t('look.errImage'));
     if (file.size > 5 * 1024 * 1024) return toast.error(t('look.errSize'));
-    const field = kind === 'avatar' ? 'avatar_url' : 'cover_banner_url';
+    const field = kind === 'avatar' ? 'avatar_url' : kind === 'qris' ? 'qris_image_url' : 'cover_banner_url';
     const previous = profile?.[field] ?? null;
     set(field, URL.createObjectURL(file));
     setProgress((p) => ({ ...p, [kind]: 0 }));
@@ -129,7 +137,7 @@ export default function AdminAppearancePage() {
       await putWithProgress(res.uploadUrl, file, (pct) => setProgress((p) => ({ ...p, [kind]: pct })), locale);
       if (!res.publicUrl) throw new Error(t('look.noPublicUrl'));
       set(field, res.publicUrl);
-      toast.success(kind === 'avatar' ? t('look.avatarUploaded') : t('look.bannerUploaded'), { description: t('look.rememberSave') });
+      toast.success(kind === 'avatar' ? t('look.avatarUploaded') : kind === 'qris' ? t('look.qrisUploaded') : t('look.bannerUploaded'), { description: t('look.rememberSave') });
     } catch (err) {
       set(field, previous);
       toast.error(t('look.uploadFailed'), { description: err instanceof Error ? err.message : undefined });
@@ -162,6 +170,7 @@ export default function AdminAppearancePage() {
             <TabsTrigger value="profile" className="gap-1.5 rounded-full px-4"><Store className="h-4 w-4" /> {t('look.tabProfile')}</TabsTrigger>
             <TabsTrigger value="media" className="gap-1.5 rounded-full px-4"><ImageIcon className="h-4 w-4" /> {t('look.tabMedia')}</TabsTrigger>
             <TabsTrigger value="theme" className="gap-1.5 rounded-full px-4"><Palette className="h-4 w-4" /> {t('look.tabTheme')}</TabsTrigger>
+            <TabsTrigger value="payment" className="gap-1.5 rounded-full px-4"><QrCode className="h-4 w-4" /> {t('look.tabPayment')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="glass space-y-4 rounded-3xl p-6 data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:slide-in-from-bottom-2">
@@ -228,6 +237,45 @@ export default function AdminAppearancePage() {
               <div>
                 <p className="text-sm font-medium">{t('look.avatar')}</p>
                 <p className="text-xs text-muted-foreground">{t('look.avatarHint')}</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="payment" className="glass space-y-4 rounded-3xl p-6 data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:slide-in-from-bottom-2">
+            <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
+              <div className="space-y-1.5">
+                <Label>{t('look.qris')}</Label>
+                <Dropzone
+                  accept="image/*"
+                  label={t('look.qrisDrop')}
+                  progress={progress.qris}
+                  onFile={(f) => upload(f, 'qris')}
+                  className="aspect-square p-0"
+                  preview={
+                    profile.qris_image_url ? (
+                      <img src={profile.qris_image_url} alt="" className="absolute inset-0 h-full w-full bg-white object-contain p-2 transition-opacity group-hover:opacity-50" />
+                    ) : undefined
+                  }
+                />
+                {profile.qris_image_url && (
+                  <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive" onClick={() => set('qris_image_url', null)}>
+                    {t('common.delete')}
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">{t('look.qrisHint')}</p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="whatsapp_number">{t('look.whatsapp')}</Label>
+                  <div className="group relative">
+                    <MessageCircle className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary" />
+                    <Input id="whatsapp_number" type="tel" inputMode="tel" value={profile.whatsapp_number ?? ''} onChange={(e) => set('whatsapp_number', e.target.value)} placeholder="081234567890" aria-describedby="whatsapp-hint" className="pl-10" />
+                  </div>
+                  <p id="whatsapp-hint" className="text-xs text-muted-foreground">{t('look.whatsappHint')}</p>
+                </div>
+                <p className={cn('rounded-xl p-3 text-xs', profile.qris_image_url && profile.whatsapp_number ? 'bg-success/10 text-success' : 'bg-muted/60 text-muted-foreground')}>
+                  {profile.qris_image_url && profile.whatsapp_number ? t('look.qrisOn') : t('look.qrisOff')}
+                </p>
               </div>
             </div>
           </TabsContent>

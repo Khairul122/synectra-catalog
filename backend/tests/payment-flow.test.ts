@@ -25,7 +25,7 @@ describe('payment flow', () => {
     const create = vi.spyOn(orderRepository, 'createOrder').mockResolvedValue(order);
     vi.spyOn(orderRepository, 'setPaymentDetails').mockResolvedValue(undefined);
     vi.spyOn(dokuAdapter, 'createCheckout').mockResolvedValue({ paymentUrl: 'https://example.com/pay', referenceId: 'REF-1', invoiceId: 'INV-1' });
-    const result = await checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890' });
+    const result = await checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890', paymentMethod: 'DOKU' as const });
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ amount: 25000, status: 'PENDING' }), [{ product_id: productId, price: 25000 }]);
     expect(result.amount).toBe(25000);
   });
@@ -36,7 +36,7 @@ describe('payment flow', () => {
     const create = vi.spyOn(orderRepository, 'createOrder').mockResolvedValue({ ...order, amount: 35000 });
     vi.spyOn(orderRepository, 'setPaymentDetails').mockResolvedValue(undefined);
     const doku = vi.spyOn(dokuAdapter, 'createCheckout').mockResolvedValue({ paymentUrl: 'https://example.com/pay', referenceId: 'R', invoiceId: 'x' });
-    const result = await checkoutService.initiateCheckout({ productIds: [productId, second.id], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890' });
+    const result = await checkoutService.initiateCheckout({ productIds: [productId, second.id], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890', paymentMethod: 'DOKU' as const });
     expect(result.amount).toBe(35000);
     expect(create.mock.calls[0][1]).toEqual([{ product_id: productId, price: 25000 }, { product_id: second.id, price: 10000 }]);
     expect(doku).toHaveBeenCalledWith(expect.objectContaining({ amount: 35000, lineItems: [{ name: 'Asset', price: 25000 }, { name: 'Second', price: 10000 }] }));
@@ -64,7 +64,7 @@ describe('payment flow', () => {
     vi.spyOn(orderRepository, 'createOrder').mockResolvedValue(order);
     vi.spyOn(dokuAdapter, 'createCheckout').mockRejectedValue(new Error('provider unavailable'));
     const record = vi.spyOn(orderRepository, 'recordPaymentError').mockResolvedValue(undefined);
-    await expect(checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890' })).rejects.toThrow('provider unavailable');
+    await expect(checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890', paymentMethod: 'DOKU' as const })).rejects.toThrow('provider unavailable');
     expect(record).toHaveBeenCalledWith('INV-1', expect.stringContaining('provider unavailable'));
   });
 
@@ -155,7 +155,7 @@ describe('payment flow', () => {
     const create = vi.spyOn(orderRepository, 'createOrder').mockImplementation(async (p) => ({ ...order, invoice_id: p.invoice_id }));
     vi.spyOn(orderRepository, 'setPaymentDetails').mockResolvedValue(undefined);
     vi.spyOn(dokuAdapter, 'createCheckout').mockResolvedValue({ paymentUrl: 'https://example.com/pay', referenceId: 'R', invoiceId: 'x' });
-    await checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890' });
+    await checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890', paymentMethod: 'DOKU' as const });
     expect(create.mock.calls[0][0].invoice_id).toMatch(/^INV-\d+-[0-9a-f]{16}$/);
   });
 });
@@ -189,5 +189,44 @@ describe('link delivery', () => {
     const body = JSON.stringify(await catalogService.getCatalog());
     expect(body).not.toContain('drive.google.com');
     expect(body).not.toContain('file_path');
+  });
+});
+
+describe('manual QRIS payment', () => {
+  const manualDto = { productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890', paymentMethod: 'QRIS_MANUAL' as const };
+
+  it('creates the order without calling DOKU', async () => {
+    vi.spyOn(productRepository, 'getProductById').mockResolvedValue(product as never);
+    vi.spyOn(profileRepository, 'getProfile').mockResolvedValue({ qris_image_url: 'https://x.test/qr.png', whatsapp_number: '6281111111111' } as never);
+    const create = vi.spyOn(orderRepository, 'createOrder').mockResolvedValue({ ...order, payment_method: 'QRIS_MANUAL' } as Order);
+    const doku = vi.spyOn(dokuAdapter, 'createCheckout');
+    const result = await checkoutService.initiateCheckout(manualDto);
+    expect(result.paymentUrl).toBeNull();
+    expect(doku).not.toHaveBeenCalled();
+    expect(create.mock.calls[0][0].payment_method).toBe('QRIS_MANUAL');
+  });
+
+  it('refuses manual checkout until the store has a QR image and WhatsApp number', async () => {
+    vi.spyOn(productRepository, 'getProductById').mockResolvedValue(product as never);
+    vi.spyOn(profileRepository, 'getProfile').mockResolvedValue({ qris_image_url: null, whatsapp_number: null } as never);
+    const create = vi.spyOn(orderRepository, 'createOrder');
+    await expect(checkoutService.initiateCheckout(manualDto)).rejects.toThrow('QRIS belum tersedia');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('admin confirmation runs the normal paid flow, only for manual orders', async () => {
+    const process = vi.spyOn(fulfillmentService, 'processNotification').mockResolvedValue({ invoiceId: 'INV-1', status: 'PAID', emailSent: true, downloadUrlGenerated: true });
+    vi.spyOn(orderRepository, 'getOrderByInvoiceId').mockResolvedValue({ ...order, payment_method: 'QRIS_MANUAL' } as Order);
+    await fulfillmentService.confirmManualPayment('INV-1');
+    expect(process).toHaveBeenCalledWith({ order: { invoice_number: 'INV-1', amount: 25000 }, transaction: { status: 'SUCCESS', reference_id: 'QRIS-MANUAL' } });
+
+    vi.spyOn(orderRepository, 'getOrderByInvoiceId').mockResolvedValue({ ...order, payment_method: 'DOKU' } as Order);
+    await expect(fulfillmentService.confirmManualPayment('INV-1')).rejects.toThrow('QRIS manual');
+  });
+
+  it('never asks DOKU about manual orders', async () => {
+    const status = vi.spyOn(dokuAdapter, 'getOrderStatus');
+    await fulfillmentService.syncPendingOrder({ ...order, payment_method: 'QRIS_MANUAL' } as Order);
+    expect(status).not.toHaveBeenCalled();
   });
 });

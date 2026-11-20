@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Lock, ShoppingCart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, Lock, QrCode, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import { cart, useCart } from '@/lib/cart';
 import { useI18n } from '@/lib/i18n';
 import { formatRupiah } from '@/lib/utils';
 import { api } from '@/services/api';
+import type { PaymentMethod } from '@/types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -34,7 +35,11 @@ function Checkout() {
   // ?product=<id> is "Buy now" for a single product; otherwise the cart is checked out.
   const buyNowId = useSearchParams().get('product');
   const cartItems = useCart();
-  const { products, loading, failed, retry } = useCatalogProducts();
+  const { products, profile, loading, failed, retry } = useCatalogProducts();
+  // Manual QRIS only once the admin has set both the QR image and the WhatsApp number.
+  const qrisAvailable = Boolean(profile?.qris_image_url && profile?.whatsapp_number);
+  const [method, setMethod] = useState<PaymentMethod>('DOKU');
+  const paymentMethod: PaymentMethod = qrisAvailable ? method : 'DOKU';
 
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
@@ -70,8 +75,8 @@ function Checkout() {
     setErrors(nextErrors);
     if (nextErrors.name || nextErrors.email || nextErrors.phone || selected.length === 0) return;
 
-    const dto = { productIds: selected.map((p) => p.id), buyerName: name, buyerEmail: email, buyerPhone: phone };
-    const signature = `${dto.productIds.join()}|${name}|${email}|${phone}`;
+    const dto = { productIds: selected.map((p) => p.id), buyerName: name, buyerEmail: email, buyerPhone: phone, paymentMethod };
+    const signature = `${dto.productIds.join()}|${name}|${email}|${phone}|${paymentMethod}`;
     if (idempotencyRef.current?.signature !== signature) {
       idempotencyRef.current = { signature, key: crypto.randomUUID() };
     }
@@ -209,13 +214,35 @@ function Checkout() {
                 </div>
               </dl>
 
-              <div className="mt-5 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
-                <Lock className="h-8 w-8 shrink-0 text-primary" />
-                <div>
-                  <p className="text-sm font-semibold">{t('checkout.secure')}</p>
-                  <p className="text-xs text-muted-foreground">{t('checkout.secureSub')}</p>
+              {qrisAvailable ? (
+                <fieldset className="mt-5 space-y-2">
+                  <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('checkout.method')}</legend>
+                  {([
+                    ['DOKU', Lock, t('checkout.secure'), t('checkout.secureSub')],
+                    ['QRIS_MANUAL', QrCode, t('checkout.methodQris'), t('checkout.methodQrisSub')],
+                  ] as const).map(([value, Icon, title, sub]) => (
+                    <label
+                      key={value}
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${method === value ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                    >
+                      <input type="radio" name="payment-method" value={value} checked={method === value} onChange={() => setMethod(value)} className="h-4 w-4 accent-primary" />
+                      <Icon className="h-6 w-6 shrink-0 text-primary" />
+                      <span>
+                        <span className="block text-sm font-semibold">{title}</span>
+                        <span className="block text-xs text-muted-foreground">{sub}</span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              ) : (
+                <div className="mt-5 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
+                  <Lock className="h-8 w-8 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold">{t('checkout.secure')}</p>
+                    <p className="text-xs text-muted-foreground">{t('checkout.secureSub')}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <Button type="submit" variant="brand" size="xl" className="mt-5 w-full" disabled={submitting}>
                 {submitting && <Loader2 className="animate-spin" />}

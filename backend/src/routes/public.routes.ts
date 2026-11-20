@@ -6,6 +6,8 @@ import type { Order } from '../types';
 import { fulfillmentService, orderProducts } from '../services/fulfillment.service';
 import { validateBody } from '../middlewares/validate.middleware';
 import { checkoutDtoSchema, type CheckoutDto } from '../dtos';
+import { profileRepository } from '../repositories/profile.repository';
+import type { Profile } from '../types';
 import { successResponse, errorResponse } from '../utils/response';
 import type { AppEnv } from '../types';
 
@@ -21,7 +23,7 @@ function maskPhone(phone: string): string {
   return `${phone.slice(0, 5)}****${phone.slice(-3)}`;
 }
 
-export function toPublicOrder(order: Order) {
+export function toPublicOrder(order: Order, profile?: Profile | null) {
   return {
     invoice_id: order.invoice_id,
     status: order.status,
@@ -30,6 +32,12 @@ export function toPublicOrder(order: Order) {
     buyer_email: maskEmail(order.buyer_email),
     buyer_phone: order.buyer_phone ? maskPhone(order.buyer_phone) : null,
     paid_at: order.status === 'PAID' ? order.updated_at : null,
+    payment_method: order.payment_method,
+    // Manual QRIS: what the buyer needs to pay and confirm, only while the order is open.
+    manual_payment:
+      order.payment_method === 'QRIS_MANUAL' && order.status === 'PENDING' && profile
+        ? { qris_image_url: profile.qris_image_url ?? null, whatsapp_number: profile.whatsapp_number ?? null }
+        : null,
     payment_url: order.status === 'PENDING' ? order.payment_url : null,
     created_at: order.created_at,
     product: order.product
@@ -97,7 +105,8 @@ publicRoutes.get('/order/:invoiceId', async (c) => {
     order = (await checkoutService.getOrder(invoiceId)) ?? order;
   }
 
-  return c.json(successResponse(toPublicOrder(order)));
+  const profile = order.payment_method === 'QRIS_MANUAL' && order.status === 'PENDING' ? await profileRepository.getProfile() : null;
+  return c.json(successResponse(toPublicOrder(order, profile)));
 });
 
 // GET /api/order/:invoiceId/download — Dapatkan tautan unduh aset digital jika order lunas

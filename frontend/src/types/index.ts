@@ -11,6 +11,8 @@ export interface Profile {
   tiktok_url?: string | null;
   youtube_url?: string | null;
   theme_color?: string | null;
+  qris_image_url?: string | null;
+  whatsapp_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +27,8 @@ export interface Link {
   created_at: string;
   updated_at: string;
 }
+
+export type PaymentMethod = 'DOKU' | 'QRIS_MANUAL';
 
 export interface Product {
   id: string;
@@ -48,6 +52,9 @@ export interface Order {
   buyer_name: string;
   buyer_email: string;
   buyer_phone?: string | null;
+  payment_method?: PaymentMethod;
+  /** Manual QRIS while pending: the store's QR and admin WhatsApp. */
+  manual_payment?: { qris_image_url: string | null; whatsapp_number: string | null } | null;
   paid_at?: string | null;
   amount: number;
   status: OrderStatus;
@@ -71,6 +78,7 @@ export interface CheckoutPayload {
   buyerName: string;
   buyerEmail: string;
   buyerPhone: string;
+  paymentMethod: PaymentMethod;
 }
 
 export interface CheckoutResponseData {

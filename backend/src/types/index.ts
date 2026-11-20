@@ -1,4 +1,5 @@
 export type OrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
+export type PaymentMethod = 'DOKU' | 'QRIS_MANUAL';
 export type FulfillmentState = 'PENDING' | 'PROCESSING' | 'SENT';
 
 export interface Profile {
@@ -12,6 +13,10 @@ export interface Profile {
   tiktok_url?: string | null;
   youtube_url?: string | null;
   theme_color?: string | null;
+  /** Store's own QRIS image for manual payment. */
+  qris_image_url?: string | null;
+  /** Admin WhatsApp (628…) where buyers confirm manual payments. */
+  whatsapp_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +56,7 @@ export interface Order {
   buyer_name: string;
   buyer_email: string;
   buyer_phone: string | null;
+  payment_method: PaymentMethod;
   product_id: string;
   amount: number;
   status: OrderStatus;

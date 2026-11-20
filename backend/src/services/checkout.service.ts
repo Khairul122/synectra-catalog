@@ -2,13 +2,15 @@ import { randomBytes } from 'node:crypto';
 import { productRepository } from '../repositories/product.repository';
 import { orderRepository, DuplicateOrderError } from '../repositories/order.repository';
 import { dokuAdapter } from '../infrastructure/doku.adapter';
+import { profileRepository } from '../repositories/profile.repository';
 import type { CheckoutDto } from '../dtos';
 import type { Order } from '../types';
 
 export interface CheckoutResult {
   invoiceId: string;
   amount: number;
-  paymentUrl: string;
+  /** Null for manual QRIS: the buyer pays from the order page. */
+  paymentUrl: string | null;
   productTitle: string;
 }
 
@@ -33,6 +35,14 @@ export class CheckoutService {
     }
     const items = products as NonNullable<(typeof products)[number]>[];
 
+    const manual = dto.paymentMethod === 'QRIS_MANUAL';
+    if (manual) {
+      const profile = await profileRepository.getProfile();
+      if (!profile?.qris_image_url || !profile.whatsapp_number) {
+        throw new CheckoutError('Pembayaran QRIS belum tersedia. Silakan pilih metode lain.');
+      }
+    }
+
     // Security: prices come solely from the database product records, never from the client request
     const price = items.reduce((sum, product) => sum + product.price, 0);
     const productTitle = items.length === 1 ? items[0].title : `${items[0].title} + ${items.length - 1} produk lainnya`;
@@ -46,6 +56,7 @@ export class CheckoutService {
         buyer_name: dto.buyerName,
         buyer_email: dto.buyerEmail,
         buyer_phone: dto.buyerPhone,
+        payment_method: dto.paymentMethod,
         product_id: items[0].id,
         amount: price,
         status: 'PENDING',
@@ -59,6 +70,11 @@ export class CheckoutService {
         if (existing) return this.replay(existing, dto);
       }
       throw error;
+    }
+
+    if (manual) {
+      // No gateway: the admin confirms the transfer over WhatsApp and marks the order paid.
+      return { invoiceId: order.invoice_id, amount: price, paymentUrl: null, productTitle };
     }
 
     let paymentResult;
@@ -96,7 +112,7 @@ export class CheckoutService {
     if (!sameCart || existing.buyer_email !== dto.buyerEmail) {
       throw new CheckoutError('Idempotency-Key sudah dipakai untuk checkout lain.', 409);
     }
-    if (!existing.payment_url) {
+    if (!existing.payment_url && existing.payment_method !== 'QRIS_MANUAL') {
       throw new CheckoutError('Checkout sebelumnya masih diproses atau gagal. Coba lagi sebentar.', 409);
     }
     return {

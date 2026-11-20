@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Copy, CreditCard, Inbox, Mail, Package, Phone, RefreshCw, Search, User } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, CheckCircle2, Copy, CreditCard, Inbox, Loader2, Mail, Package, Phone, QrCode, RefreshCw, Search, User } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
 import type { Order, OrderStatus } from '@/types';
@@ -39,6 +39,23 @@ export default function AdminOrdersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<'idle' | 'ask' | 'saving'>('idle');
+
+  const confirmPayment = async (order: Order) => {
+    if (!token) return;
+    setConfirmStep('saving');
+    try {
+      await api.adminConfirmOrder(token, order.invoice_id);
+      toast.success(t('orders.confirmed'), { description: order.invoice_id });
+    } catch (err) {
+      // The order may already be PAID even if the delivery email failed; the reload shows the truth.
+      toast.error(t('orders.confirmFailed'), { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setConfirmStep('idle');
+      setViewingOrder(null);
+      fetchOrders();
+    }
+  };
 
   const fetchOrders = async (manual = false) => {
     if (!token) return;
@@ -166,6 +183,7 @@ export default function AdminOrdersPage() {
                     <div className="font-medium">{order.buyer_name}</div>
                     <div className="text-xs text-muted-foreground">{order.buyer_email}</div>
                     {order.buyer_phone && <div className="text-xs text-muted-foreground">{order.buyer_phone}</div>}
+                    {order.payment_method === 'QRIS_MANUAL' && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"><QrCode className="h-3 w-3" /> QRIS</span>}
                   </TableCell>
                   <TableCell className="hidden max-w-[200px] truncate md:table-cell">{order.product?.title ?? '-'}</TableCell>
                   <TableCell className="font-mono font-semibold">{formatRupiah(order.amount)}</TableCell>
@@ -206,7 +224,8 @@ export default function AdminOrdersPage() {
                   { icon: Mail, label: t('order.email'), value: viewingOrder.buyer_email, copy: true },
                   { icon: Phone, label: t('order.phone'), value: viewingOrder.buyer_phone ?? '-', copy: Boolean(viewingOrder.buyer_phone) },
                   { icon: Package, label: t('order.product'), value: viewingOrder.product?.title ?? '-' },
-                  { icon: CreditCard, label: t('orders.doku'), value: viewingOrder.doku_reference_id ?? '-' },
+                  { icon: viewingOrder.payment_method === 'QRIS_MANUAL' ? QrCode : CreditCard, label: t('orders.method'), value: viewingOrder.payment_method === 'QRIS_MANUAL' ? t('checkout.methodQris') : 'DOKU' },
+                  ...(viewingOrder.payment_method === 'QRIS_MANUAL' ? [] : [{ icon: CreditCard, label: t('orders.doku'), value: viewingOrder.doku_reference_id ?? '-' }]),
                 ].map(({ icon: Icon, label, value, copy: canCopy }) => (
                   <motion.div key={label} variants={{ hidden: { opacity: 0, x: 12 }, show: { opacity: 1, x: 0 } }} className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground"><Icon className="h-4 w-4" /></span>
@@ -219,6 +238,23 @@ export default function AdminOrdersPage() {
                     )}
                   </motion.div>
                 ))}
+                {viewingOrder.payment_method === 'QRIS_MANUAL' && viewingOrder.status === 'PENDING' && (
+                  <div className="space-y-2 rounded-2xl border border-warning/40 bg-warning/10 p-4">
+                    <p className="text-xs text-muted-foreground">{t('orders.confirmHint')}</p>
+                    {confirmStep === 'idle' ? (
+                      <Button variant="brand" className="w-full" onClick={() => setConfirmStep('ask')}>
+                        <CheckCircle2 /> {t('orders.confirm')}
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button variant="outline" className="flex-1" onClick={() => setConfirmStep('idle')} disabled={confirmStep === 'saving'}>{t('common.cancel')}</Button>
+                        <Button variant="brand" className="flex-1" onClick={() => confirmPayment(viewingOrder)} disabled={confirmStep === 'saving'}>
+                          {confirmStep === 'saving' && <Loader2 className="animate-spin" />} {t('orders.confirmSure')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <Separator />
                 <div className="space-y-1 text-xs text-muted-foreground">
                   <p>{t('orders.created', { date: formatDate(viewingOrder.created_at) })}</p>

@@ -29,6 +29,7 @@ export const checkoutDtoSchema = z.preprocess(
   buyerName: z.string().trim().min(2, 'Nama pembeli minimal 2 karakter').max(100),
   buyerEmail: z.string().trim().email('Format email tidak valid'),
   buyerPhone: phoneSchema,
+  paymentMethod: z.enum(['DOKU', 'QRIS_MANUAL']).default('DOKU'),
   }),
 );
 
@@ -119,6 +120,8 @@ export const updateProfileDtoSchema = z.object({
   tiktok_url: optionalUrlSchema,
   youtube_url: optionalUrlSchema,
   theme_color: optionalHexColorSchema,
+  qris_image_url: optionalUrlSchema,
+  whatsapp_number: z.preprocess(sanitizeEmptyString, phoneSchema.nullable().optional()),
 });
 
 export type UpdateProfileDto = z.infer<typeof updateProfileDtoSchema>;

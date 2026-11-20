@@ -102,7 +102,7 @@ export class FulfillmentService {
    * ponytail: called on every status poll of a pending order (5s while the page is open); cache/throttle if DOKU rate-limits.
    */
   async syncPendingOrder(order: Order): Promise<void> {
-    if (order.status !== 'PENDING') return;
+    if (order.status !== 'PENDING' || order.payment_method === 'QRIS_MANUAL') return;
     try {
       const doku = await dokuAdapter.getOrderStatus(order.invoice_id);
       if (!doku || doku.status === 'PENDING') return;
@@ -114,6 +114,18 @@ export class FulfillmentService {
       // Status is already PAID before email/storage can fail, so the buyer still sees the payment.
       console.error('[doku-sync]', order.invoice_id, error instanceof Error ? error.message : error);
     }
+  }
+
+  /** Admin confirmed a manual QRIS transfer: run the exact same path as a DOKU SUCCESS notification. */
+  async confirmManualPayment(invoiceId: string): Promise<FulfillmentResult> {
+    const order = await orderRepository.getOrderByInvoiceId(invoiceId);
+    if (!order) throw new Error('Order tidak ditemukan.');
+    if (order.payment_method !== 'QRIS_MANUAL') throw new Error('Hanya order QRIS manual yang bisa dikonfirmasi admin.');
+    if (order.status !== 'PENDING' && order.status !== 'PAID') throw new Error(`Order berstatus ${order.status}.`);
+    return this.processNotification({
+      order: { invoice_number: invoiceId, amount: order.amount },
+      transaction: { status: 'SUCCESS', reference_id: 'QRIS-MANUAL' },
+    });
   }
 
   async getDownloadLinksForOrder(invoiceId: string): Promise<Array<{ productId: string; title: string; url: string }>> {

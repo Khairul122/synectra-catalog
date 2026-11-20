@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import { adminService } from '../services/admin.service';
+import { fulfillmentService } from '../services/fulfillment.service';
 import {
   createProductDtoSchema,
   updateProductDtoSchema,
@@ -179,6 +180,18 @@ adminRoutes.get('/orders', async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Gagal memuat pesanan';
     return c.json(errorResponse(message), 500);
+  }
+});
+
+// POST /api/admin/orders/:invoiceId/confirm — admin verified a manual QRIS transfer
+adminRoutes.post('/orders/:invoiceId/confirm', async (c) => {
+  try {
+    const result = await fulfillmentService.confirmManualPayment(c.req.param('invoiceId'));
+    return c.json(successResponse(result, 'Pembayaran dikonfirmasi'));
+  } catch (error) {
+    // Status is PAID before email can fail; report the error but the payment itself stands.
+    const message = error instanceof Error ? error.message : 'Gagal mengonfirmasi pembayaran';
+    return c.json(errorResponse(message), 400);
   }
 });
 
