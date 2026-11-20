@@ -1,19 +1,27 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { formatDateTime, useMember } from '@/context/MemberContext';
 import { api } from '@/services/api';
-import { EmptyState, ErrorState, StatusBadge } from '@/components/shared/feedback';
+import { ErrorState, StatusBadge } from '@/components/shared/feedback';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useI18n } from '@/lib/i18n';
-import { formatRupiah, selectClass } from '@/lib/utils';
+import { useI18n, type MessageKey } from '@/lib/i18n';
+import { cn, formatRupiah } from '@/lib/utils';
 import type { MemberOrder, OrderStatus } from '@/types';
 
-const STATUSES: OrderStatus[] = ['PAID', 'PENDING', 'FAILED', 'EXPIRED'];
+const PAGE_SIZE = 10;
+// Filters only earn their space once there is something to filter.
+const FILTERS_FROM = 6;
+const STATUS_FILTERS: { value: OrderStatus | ''; label: MessageKey }[] = [
+  { value: '', label: 'member.allStatus' },
+  { value: 'PAID', label: 'member.statusPaid' },
+  { value: 'PENDING', label: 'member.statusPending' },
+  { value: 'EXPIRED', label: 'member.statusEnded' },
+];
 const dayKey = (iso: string) => new Date(iso).toLocaleDateString('en-CA'); // YYYY-MM-DD in the viewer's zone
 
 export default function MemberTransactionsPage() {
@@ -21,9 +29,8 @@ export default function MemberTransactionsPage() {
   const { orders, ordersError, reloadOrders } = useMember();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<OrderStatus | ''>('');
   const [search, setSearch] = useState('');
-  const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<MemberOrder | null>(null);
 
@@ -34,15 +41,21 @@ export default function MemberTransactionsPage() {
       return (
         (!from || day >= from) &&
         (!to || day <= to) &&
-        (!status || o.status === status) &&
+        // "Ended" groups both terminal failures: the buyer cares that it did not go through, not why.
+        (!status || o.status === status || (status === 'EXPIRED' && o.status === 'FAILED')) &&
         (!q || o.invoice_id.toLowerCase().includes(q) || o.items.some((i) => i.title.toLowerCase().includes(q)))
       );
     });
   }, [orders, from, to, status, search]);
-  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages);
-  const visible = filtered.slice((current - 1) * pageSize, current * pageSize);
+  const visible = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const filtering = Boolean(from || to || status || search);
 
+  const update = <T,>(set: (v: T) => void) => (v: T) => {
+    set(v);
+    setPage(1);
+  };
   const reset = () => {
     setFrom('');
     setTo('');
@@ -50,104 +63,80 @@ export default function MemberTransactionsPage() {
     setSearch('');
     setPage(1);
   };
-  const filterChange = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setPage(1);
-  };
+
+  if (ordersError) return <ErrorState message={ordersError} onRetry={reloadOrders} />;
+  if (!orders) return <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>;
+  if (orders.length === 0) return <p className="py-10 text-center text-sm text-muted-foreground">{t('member.noTransactions')}</p>;
 
   return (
     <div>
-      <h1 className="py-6 font-display text-3xl font-bold">{t('member.transactionsTitle')}</h1>
-      <div className="rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[auto_auto_auto_1fr_auto]">
-          <label>
-            <span className="sr-only">{t('member.dateFrom')}</span>
-            <Input type="date" value={from} max={to || undefined} onChange={(e) => filterChange(setFrom)(e.target.value)} aria-label={t('member.dateFrom')} />
-          </label>
-          <label>
-            <span className="sr-only">{t('member.dateTo')}</span>
-            <Input type="date" value={to} min={from || undefined} onChange={(e) => filterChange(setTo)(e.target.value)} aria-label={t('member.dateTo')} />
-          </label>
-          <label>
-            <span className="sr-only">{t('member.status')}</span>
-            <select value={status} onChange={(e) => filterChange(setStatus)(e.target.value)} className={selectClass}>
-              <option value="">{t('member.allStatus')}</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-          <label className="relative">
-            <span className="sr-only">{t('member.search')}</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input type="search" value={search} onChange={(e) => filterChange(setSearch)(e.target.value)} placeholder={t('member.search')} className="pl-9" />
-          </label>
-          <Button variant="outline" onClick={reset}>{t('member.reset')}</Button>
-        </div>
-
-        <div className="mt-4">
-          {ordersError ? (
-            <ErrorState message={ordersError} onRetry={reloadOrders} />
-          ) : !orders ? (
-            <Skeleton className="h-40 rounded-xl" />
-          ) : visible.length === 0 ? (
-            <EmptyState icon={ClipboardList} title={orders.length ? t('member.noMatch') : t('member.noTransactions')} />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-2 py-3 font-semibold">#</th>
-                    <th className="px-2 py-3 font-semibold">{t('member.trxId')}</th>
-                    <th className="px-2 py-3 font-semibold">{t('member.date')}</th>
-                    <th className="px-2 py-3 font-semibold">{t('member.status')}</th>
-                    <th className="px-2 py-3 text-right font-semibold">{t('member.amount')}</th>
-                    <th className="px-2 py-3"><span className="sr-only">{t('member.details')}</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((o, i) => (
-                    <tr key={o.invoice_id} className="border-b last:border-0">
-                      <td className="px-2 py-3 text-muted-foreground">{(current - 1) * pageSize + i + 1}</td>
-                      <td className="px-2 py-3 font-mono text-xs">{o.invoice_id}</td>
-                      <td className="px-2 py-3 whitespace-nowrap">{formatDateTime(o.created_at, intl)}</td>
-                      <td className="px-2 py-3"><StatusBadge status={o.status} /></td>
-                      <td className="px-2 py-3 text-right whitespace-nowrap">{formatRupiah(o.amount)}</td>
-                      <td className="px-2 py-3 text-right">
-                        <Button size="sm" onClick={() => setSelected(o)}>{t('member.details')}</Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {orders && orders.length > 0 && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              {t('member.show')}
-              <select value={pageSize} onChange={(e) => filterChange(setPageSize)(Number(e.target.value))} className={`${selectClass} w-auto`}>
-                {[10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </label>
-            <nav aria-label={t('member.pagination')} className="flex items-center gap-1">
-              {[
-                { icon: ChevronsLeft, to: 1, label: t('member.first') },
-                { icon: ChevronLeft, to: current - 1, label: t('member.prev') },
-              ].map(({ icon: Icon, to: target, label }) => (
-                <Button key={label} variant="ghost" size="icon" disabled={current === 1} onClick={() => setPage(target)} aria-label={label}><Icon /></Button>
-              ))}
-              <span className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-primary px-2 text-sm font-semibold text-primary-foreground">{current}</span>
-              {[
-                { icon: ChevronRight, to: current + 1, label: t('member.next') },
-                { icon: ChevronsRight, to: pages, label: t('member.last') },
-              ].map(({ icon: Icon, to: target, label }) => (
-                <Button key={label} variant="ghost" size="icon" disabled={current === pages} onClick={() => setPage(target)} aria-label={label}><Icon /></Button>
-              ))}
-            </nav>
+      {orders.length >= FILTERS_FROM && (
+        <div className="mb-4 space-y-3">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('member.status')}>
+            {STATUS_FILTERS.map(({ value, label }) => (
+              <button
+                key={label}
+                onClick={() => update(setStatus)(value)}
+                aria-pressed={status === value}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-sm transition-colors',
+                  status === value ? 'border-foreground bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(label)}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <label className="relative">
+              <span className="sr-only">{t('member.search')}</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input type="search" value={search} onChange={(e) => update(setSearch)(e.target.value)} placeholder={t('member.searchTransactions')} className="pl-9" />
+            </label>
+            <Input type="date" value={from} max={to || undefined} onChange={(e) => update(setFrom)(e.target.value)} aria-label={t('member.dateFrom')} />
+            <Input type="date" value={to} min={from || undefined} onChange={(e) => update(setTo)(e.target.value)} aria-label={t('member.dateTo')} />
+          </div>
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          {t('member.noMatch')}{' '}
+          {filtering && <button onClick={reset} className="font-medium text-foreground underline underline-offset-4">{t('member.reset')}</button>}
+        </div>
+      ) : (
+        <ul className="divide-y border-y">
+          {visible.map((o) => (
+            <li key={o.invoice_id}>
+              <button onClick={() => setSelected(o)} className="group flex w-full items-center gap-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium group-hover:underline">
+                    {o.items[0]?.title ?? o.invoice_id}
+                    {o.items.length > 1 && <span className="text-muted-foreground"> {t('member.moreItems', { n: o.items.length - 1 })}</span>}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {formatDateTime(o.created_at, intl)} · <span className="font-mono">{o.invoice_id}</span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-sm font-semibold tabular-nums">{formatRupiah(o.amount)}</span>
+                  <StatusBadge status={o.status} />
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pages > 1 && (
+        <nav aria-label={t('member.pagination')} className="mt-4 flex items-center justify-between text-sm">
+          <Button variant="outline" size="sm" disabled={current === 1} onClick={() => setPage(current - 1)}>{t('member.prev')}</Button>
+          <span className="text-muted-foreground">
+            {t('member.range', { from: (current - 1) * PAGE_SIZE + 1, to: Math.min(current * PAGE_SIZE, filtered.length), total: filtered.length })}
+          </span>
+          <Button variant="outline" size="sm" disabled={current === pages} onClick={() => setPage(current + 1)}>{t('member.next')}</Button>
+        </nav>
+      )}
 
       <OrderDetailDialog order={selected} onClose={() => setSelected(null)} />
     </div>
@@ -170,67 +159,52 @@ function OrderDetailDialog({ order, onClose }: { order: MemberOrder | null; onCl
 
   return (
     <Dialog open={!!order} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-md">
         {order && (
           <>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <DialogTitle className="text-xs font-semibold text-muted-foreground">{t('member.buyerInfo')}</DialogTitle>
-                <DialogDescription asChild>
-                  <div className="text-sm text-foreground">
-                    <p className="truncate">{order.buyer_email}</p>
-                    {order.buyer_phone && <p>{order.buyer_phone}</p>}
-                  </div>
-                </DialogDescription>
+            <div className="border-b p-5">
+              <div className="flex items-start justify-between gap-3">
+                <DialogTitle className="font-display text-lg">{t('member.receipt')}</DialogTitle>
+                <StatusBadge status={order.status} />
               </div>
-              <StatusBadge status={order.status} />
+              <DialogDescription className="mt-1 text-xs">
+                <span className="font-mono">{order.invoice_id}</span> · {formatDateTime(order.created_at, intl)}
+              </DialogDescription>
             </div>
 
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">{t('member.orderSummary')}</p>
-              <div className="mt-1 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                <span>{t('member.trxId')}: <span className="font-mono">{order.invoice_id}</span></span>
-                <span>{formatDateTime(order.created_at, intl)}</span>
-              </div>
-            </div>
-
-            <ul className="divide-y rounded-xl border">
+            <ul className="divide-y px-5">
               {order.items.map((item) => (
-                <li key={item.id} className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
-                      {item.thumbnail_url && (
-                        <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                    <p className="line-clamp-2 min-w-0 flex-1 text-sm">{item.title}</p>
-                    <span className="text-xs text-muted-foreground">1x</span>
-                    <span className="whitespace-nowrap text-sm font-semibold">{formatRupiah(item.price)}</span>
+                <li key={item.id} className="flex items-center gap-3 py-3">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border bg-muted">
+                    {item.thumbnail_url && <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-sm">{item.title}</p>
+                    <p className="text-xs tabular-nums text-muted-foreground">1 × {formatRupiah(item.price)}</p>
                   </div>
                   {links[item.id] && (
-                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/60 p-2">
-                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{t('member.linkIntro')}</span>
-                      <a href={links[item.id]} target="_blank" rel="noopener noreferrer" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
-                        {t('member.access')}
-                      </a>
-                    </div>
+                    <a href={links[item.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
+                      {t('member.open')}
+                    </a>
                   )}
                 </li>
               ))}
             </ul>
 
-            <dl className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
+            <dl className="space-y-1.5 border-t p-5 text-sm">
+              <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">{t('member.paymentMethod')}</dt>
                 <dd>{order.payment_method === 'QRIS_MANUAL' ? 'QRIS' : t('member.onlinePayment')}</dd>
               </div>
-              <div className="flex justify-between border-t pt-2 font-bold">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">{t('member.buyer')}</dt>
+                <dd className="min-w-0 truncate text-right">{order.buyer_email}</dd>
+              </div>
+              <div className="flex justify-between gap-4 pt-2 text-base font-bold">
                 <dt>{t('member.total')}</dt>
-                <dd>{formatRupiah(order.amount)}</dd>
+                <dd className="tabular-nums">{formatRupiah(order.amount)}</dd>
               </div>
             </dl>
-
-            <Button onClick={onClose} className="w-full">{t('member.close')}</Button>
           </>
         )}
       </DialogContent>

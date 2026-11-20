@@ -54,6 +54,3 @@ export function formatRupiah(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount);
 }
-
-/** Native <select> styled to match <Input>. */
-export const selectClass = 'h-10 w-full rounded-xl border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';

@@ -55,54 +55,55 @@ export default function MemberAccountPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1 className="py-6 font-display text-3xl font-bold">{t('member.accountTitle')}</h1>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
-          <h2 className="font-semibold text-muted-foreground">{t('member.personal')}</h2>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-name">{t('member.name')}</Label>
-            <Input id="m-name" autoComplete="name" value={form.name} onChange={set('name')} maxLength={100} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-email">Email</Label>
-            <Input id="m-email" value={me.email} readOnly disabled />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-phone">{t('member.phone')}</Label>
-            <Input id="m-phone" type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="081234567890" />
-          </div>
-        </section>
+    <form onSubmit={handleSubmit} className="max-w-xl">
+      <section className="space-y-4">
+        <h2 className="font-display text-lg font-bold">{t('member.personal')}</h2>
+        <div className="space-y-1.5">
+          <Label htmlFor="m-name">{t('member.name')}</Label>
+          <Input id="m-name" autoComplete="name" value={form.name} onChange={set('name')} maxLength={100} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="m-email">Email</Label>
+          <Input id="m-email" value={me.email} readOnly disabled />
+          <p className="text-xs text-muted-foreground">{t('member.emailHint')}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="m-phone">{t('member.phone')}</Label>
+          <Input id="m-phone" type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="081234567890" />
+        </div>
+      </section>
 
-        <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
-          <h2 className="font-semibold text-muted-foreground">{t('member.addressTitle')}</h2>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-address">{t('member.address')}</Label>
-            <Textarea id="m-address" autoComplete="street-address" value={form.address} onChange={set('address')} maxLength={500} placeholder={t('member.addressPlaceholder')} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {ADDRESS_FIELDS.map(({ key, label, autoComplete }) => (
-              <div key={key} className="space-y-1.5">
-                <Label htmlFor={`m-${key}`}>{t(label)}</Label>
-                <Input
-                  id={`m-${key}`}
-                  autoComplete={autoComplete}
-                  value={form[key]}
-                  onChange={set(key)}
-                  maxLength={key === 'zip_code' ? 5 : 100}
-                  inputMode={key === 'zip_code' ? 'numeric' : undefined}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+      <section className="mt-8 space-y-4 border-t pt-8">
+        <div>
+          <h2 className="font-display text-lg font-bold">{t('member.addressTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t('member.addressOptional')}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="m-address">{t('member.address')}</Label>
+          <Textarea id="m-address" autoComplete="street-address" value={form.address} onChange={set('address')} maxLength={500} placeholder={t('member.addressPlaceholder')} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {ADDRESS_FIELDS.map(({ key, label, autoComplete }) => (
+            <div key={key} className="space-y-1.5">
+              <Label htmlFor={`m-${key}`}>{t(label)}</Label>
+              <Input
+                id={`m-${key}`}
+                autoComplete={autoComplete}
+                value={form[key]}
+                onChange={set(key)}
+                maxLength={key === 'zip_code' ? 5 : 100}
+                inputMode={key === 'zip_code' ? 'numeric' : undefined}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <div className="mt-4 flex justify-between gap-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <Button type="button" variant="outline" onClick={() => setForm(initial())} disabled={saving}>{t('common.cancel')}</Button>
+      <div className="mt-8 flex gap-3 border-t pt-6">
         <Button type="submit" disabled={saving}>
           {saving && <Loader2 className="animate-spin" />} {t('member.saveChanges')}
         </Button>
+        <Button type="button" variant="ghost" onClick={() => setForm(initial())} disabled={saving}>{t('common.cancel')}</Button>
       </div>
     </form>
   );

@@ -40,3 +40,17 @@ export const purchasesOf = (orders: MemberOrder[]): Purchase[] =>
 
 export const formatDateTime = (iso: string, intl: string) =>
   new Date(iso).toLocaleString(intl, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+/** Each product once (its latest purchase), with how many times it was bought. */
+export const libraryOf = (orders: MemberOrder[]): Array<Purchase & { count: number }> => {
+  const byProduct = new Map<string, Purchase & { count: number }>();
+  for (const p of purchasesOf(orders)) {
+    const seen = byProduct.get(p.item.id);
+    if (seen) seen.count += 1;
+    else byProduct.set(p.item.id, { ...p, count: 1 });
+  }
+  return [...byProduct.values()];
+};
+
+export const formatDate = (iso: string, intl: string) =>
+  new Date(iso).toLocaleDateString(intl, { day: 'numeric', month: 'short', year: 'numeric' });
