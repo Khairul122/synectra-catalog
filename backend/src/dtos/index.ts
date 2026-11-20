@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const httpUrlSchema = (message: string) =>
+  z.string().trim().url(message).refine((value) => /^https?:\/\//i.test(value), message);
+
+// Indonesian mobile number; stored as 628xxxxxxxx (the format DOKU expects).
+const phoneSchema = z
+  .string()
+  .transform((value) => value.replace(/[\s.-]/g, '').replace(/^\+/, '').replace(/^0/, '62'))
+  .refine((value) => /^628\d{7,12}$/.test(value), 'Nomor HP tidak valid (contoh: 081234567890)');
+
 const productIdSchema = z.string().uuid('ID produk harus berupa format UUID yang valid');
 
 // Cart checkout sends productIds; a single legacy productId is accepted and normalized.
@@ -19,6 +28,7 @@ export const checkoutDtoSchema = z.preprocess(
     .transform((ids) => Array.from(new Set(ids))),
   buyerName: z.string().trim().min(2, 'Nama pembeli minimal 2 karakter').max(100),
   buyerEmail: z.string().trim().email('Format email tidak valid'),
+  buyerPhone: phoneSchema,
   }),
 );
 
@@ -29,7 +39,7 @@ export const createProductDtoSchema = z.object({
   description: z.string().trim().min(10, 'Deskripsi minimal 10 karakter'),
   price: z.number().int().min(0, 'Harga produk tidak boleh negatif'),
   thumbnail_url: z.string().trim().url('URL thumbnail harus valid'),
-  file_path: z.string().trim().min(3, 'File path produk wajib diisi'),
+  delivery_url: httpUrlSchema('Tautan produk harus berupa URL http/https yang valid'),
   category: z.string().trim().min(2).default('General'),
   is_active: z.boolean().default(true),
 });

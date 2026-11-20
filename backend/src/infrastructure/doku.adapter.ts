@@ -6,6 +6,7 @@ export interface CreateDokuPaymentParams {
   amount: number;
   buyerName: string;
   buyerEmail: string;
+  buyerPhone?: string;
   productTitle: string;
   /** One entry per cart product; DOKU requires their prices to sum to `amount`. Defaults to a single line. */
   lineItems?: Array<{ name: string; price: number }>;
@@ -97,6 +98,7 @@ export class DokuAdapter {
       customer: {
         name: params.buyerName,
         email: params.buyerEmail,
+        ...(params.buyerPhone ? { phone: params.buyerPhone } : {}),
       },
     };
 

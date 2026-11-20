@@ -15,7 +15,10 @@ export class CatalogService {
     return {
       profile,
       links,
-      products,
+      // Allowlist (mirrors the anon column grant): the delivery link/file is what buyers pay for.
+      products: products.map(({ id, title, description, price, thumbnail_url, category, is_active, created_at, updated_at }) => ({
+        id, title, description, price, thumbnail_url, category, is_active, created_at, updated_at,
+      })),
     };
   }
 }

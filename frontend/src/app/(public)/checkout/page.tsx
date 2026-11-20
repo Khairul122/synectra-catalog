@@ -38,7 +38,8 @@ function Checkout() {
 
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [buyerPhone, setBuyerPhone] = useState('');
+  const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   // Same key for resubmits of identical data (double click, retry after timeout); new key if data changes.
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
@@ -59,15 +60,18 @@ function Checkout() {
     e.preventDefault();
     const name = buyerName.trim();
     const email = buyerEmail.trim();
+    const phone = buyerPhone.trim();
     const nextErrors = {
       name: name.length < 2 ? t('checkout.errName') : undefined,
       email: EMAIL_RE.test(email) ? undefined : t('checkout.errEmail'),
+      // Same rule as the server: Indonesian mobile number (08…, 628…, +628…).
+      phone: /^(\+?62|0)8\d{7,12}$/.test(phone.replace(/[\s.-]/g, '')) ? undefined : t('checkout.errPhone'),
     };
     setErrors(nextErrors);
-    if (nextErrors.name || nextErrors.email || selected.length === 0) return;
+    if (nextErrors.name || nextErrors.email || nextErrors.phone || selected.length === 0) return;
 
-    const dto = { productIds: selected.map((p) => p.id), buyerName: name, buyerEmail: email };
-    const signature = `${dto.productIds.join()}|${name}|${email}`;
+    const dto = { productIds: selected.map((p) => p.id), buyerName: name, buyerEmail: email, buyerPhone: phone };
+    const signature = `${dto.productIds.join()}|${name}|${email}|${phone}`;
     if (idempotencyRef.current?.signature !== signature) {
       idempotencyRef.current = { signature, key: crypto.randomUUID() };
     }
@@ -168,6 +172,20 @@ function Checkout() {
                       onChange={(e) => setBuyerEmail(e.target.value)}
                       aria-invalid={Boolean(errors.email)}
                       aria-describedby={errors.email ? 'buyer-email-error' : 'buyer-email-hint'}
+                      className="h-12"
+                    />
+                  </Field>
+                  <Field id="buyer-phone" label={t('checkout.phone')} error={errors.phone}>
+                    <Input
+                      id="buyer-phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="081234567890"
+                      value={buyerPhone}
+                      onChange={(e) => setBuyerPhone(e.target.value)}
+                      aria-invalid={Boolean(errors.phone)}
+                      aria-describedby={errors.phone ? 'buyer-phone-error' : undefined}
                       className="h-12"
                     />
                   </Field>

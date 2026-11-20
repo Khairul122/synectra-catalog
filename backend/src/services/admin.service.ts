@@ -24,7 +24,7 @@ export class AdminService {
   }
 
   async createProduct(dto: CreateProductDto): Promise<Product> {
-    return productRepository.createProduct(dto);
+    return productRepository.createProduct({ ...dto, file_path: null });
   }
 
   async updateProduct(id: string, dto: UpdateProductDto): Promise<Product> {

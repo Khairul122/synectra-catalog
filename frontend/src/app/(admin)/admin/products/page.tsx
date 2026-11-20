@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { FileArchive, Loader2, MoreVertical, Package, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
+import { Link2, Loader2, MoreVertical, Package, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
 import { formatRupiah } from '@/lib/utils';
@@ -37,7 +37,7 @@ const EMPTY_FORM = {
   category: '',
   is_active: true,
   thumbnail_file: null as File | null,
-  product_file: null as File | null,
+  delivery_url: '',
 };
 
 export default function AdminProductsPage() {
@@ -55,7 +55,7 @@ export default function AdminProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [progress, setProgress] = useState<{ thumbnail: number | null; product: number | null }>({ thumbnail: null, product: null });
+  const [progress, setProgress] = useState<number | null>(null);
 
   const fetchProducts = async () => {
     if (!token) return;
@@ -74,12 +74,11 @@ export default function AdminProductsPage() {
     fetchProducts();
   }, [token]);
 
-  const handleUpload = async (bucket: 'public-assets' | 'private-products', file: File, key: 'thumbnail' | 'product'): Promise<string> => {
+  const uploadThumbnail = async (file: File): Promise<string> => {
     if (!token) throw new Error('Token tidak ditemukan');
-    setProgress((p) => ({ ...p, [key]: 0 }));
-    const { uploadUrl, path, publicUrl } = await api.adminGenerateUploadUrl(token, bucket, file.name);
-    await putWithProgress(uploadUrl, file, (pct) => setProgress((p) => ({ ...p, [key]: pct })), locale);
-    // Public bucket → store the public URL; private bucket → store the object path (signed at fulfillment).
+    setProgress(0);
+    const { uploadUrl, path, publicUrl } = await api.adminGenerateUploadUrl(token, 'public-assets', file.name);
+    await putWithProgress(uploadUrl, file, setProgress, locale);
     return publicUrl ?? path;
   };
 
@@ -87,11 +86,11 @@ export default function AdminProductsPage() {
     setEditingProduct(product ?? null);
     setFormData(
       product
-        ? { ...EMPTY_FORM, title: product.title, description: product.description, price: String(product.price), category: product.category, is_active: product.is_active }
+        ? { ...EMPTY_FORM, title: product.title, description: product.description, price: String(product.price), category: product.category, is_active: product.is_active, delivery_url: product.delivery_url ?? '' }
         : EMPTY_FORM,
     );
     setThumbnailPreview(product?.thumbnail_url ?? null);
-    setProgress({ thumbnail: null, product: null });
+    setProgress(null);
     setFormError(null);
     setShowModal(true);
   };
@@ -99,20 +98,20 @@ export default function AdminProductsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    const { thumbnail_file, product_file, ...rest } = formData;
+    const { thumbnail_file, ...rest } = formData;
+    rest.delivery_url = rest.delivery_url.trim();
     if (!rest.title || !rest.price || !rest.category) return setFormError(t('products.errRequired'));
     if (rest.description.trim().length < 10) return setFormError(t('products.errDesc'));
-    if (!editingProduct && (!product_file || !thumbnail_file)) return setFormError(t('products.errFiles'));
+    if (!/^https?:\/\/\S+\.\S+/i.test(rest.delivery_url)) return setFormError(t('products.errLink'));
+    if (!editingProduct && !thumbnail_file) return setFormError(t('products.errFiles'));
 
     setSaving(true);
     setFormError(null);
     try {
       let thumbnailPath = editingProduct?.thumbnail_url || null;
-      let productPath = editingProduct?.file_path || '';
-      if (thumbnail_file) thumbnailPath = await handleUpload('public-assets', thumbnail_file, 'thumbnail');
-      if (product_file) productPath = await handleUpload('private-products', product_file, 'product');
+      if (thumbnail_file) thumbnailPath = await uploadThumbnail(thumbnail_file);
 
-      const dto = { ...rest, price: Number(rest.price), thumbnail_url: thumbnailPath, file_path: productPath };
+      const dto = { ...rest, price: Number(rest.price), thumbnail_url: thumbnailPath };
       if (editingProduct) await api.adminUpdateProduct(token, editingProduct.id, dto);
       else await api.adminCreateProduct(token, dto);
 
@@ -257,8 +256,8 @@ export default function AdminProductsPage() {
                 accept="image/*"
                 label={formData.thumbnail_file?.name ?? t('products.thumbnail')}
                 hint={t('products.thumbHint')}
-                progress={progress.thumbnail}
-                done={progress.thumbnail === 100}
+                progress={progress}
+                done={progress === 100}
                 className="aspect-square p-0"
                 preview={
                   thumbnailPreview ? (
@@ -270,14 +269,6 @@ export default function AdminProductsPage() {
                   setFormData((f) => ({ ...f, thumbnail_file: file }));
                   setThumbnailPreview(URL.createObjectURL(file));
                 }}
-              />
-              <Dropzone
-                label={formData.product_file?.name ?? (editingProduct ? t('products.replaceFile') : t('products.file'))}
-                hint={t('products.fileHint')}
-                progress={progress.product}
-                done={progress.product === 100}
-                preview={formData.product_file ? <FileArchive className="h-8 w-8 text-primary" /> : undefined}
-                onFile={(file) => setFormData((f) => ({ ...f, product_file: file }))}
               />
             </div>
 
@@ -298,6 +289,23 @@ export default function AdminProductsPage() {
                     {Array.from(new Set(products.map((p) => p.category))).map((c) => <option key={c} value={c} />)}
                   </datalist>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="delivery-url">{t('products.link')}</Label>
+                <div className="relative">
+                  <Link2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="delivery-url"
+                    type="url"
+                    inputMode="url"
+                    value={formData.delivery_url}
+                    onChange={(e) => setFormData({ ...formData, delivery_url: e.target.value })}
+                    placeholder="https://drive.google.com/..."
+                    aria-describedby="delivery-url-hint"
+                    className="pl-10"
+                  />
+                </div>
+                <p id="delivery-url-hint" className="text-xs text-muted-foreground">{t('products.linkHint')}</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="description">{t('products.fieldDesc')}</Label>

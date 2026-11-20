@@ -18,13 +18,13 @@ beforeEach(() => vi.restoreAllMocks());
 
 describe('DTO validation', () => {
   it('checkout: accepts valid input and trims', () => {
-    const parsed = checkoutDtoSchema.parse({ productId, buyerName: '  Budi  ', buyerEmail: ' budi@example.com ' });
-    expect(parsed).toEqual({ productIds: [productId], buyerName: 'Budi', buyerEmail: 'budi@example.com' });
+    const parsed = checkoutDtoSchema.parse({ productId, buyerName: '  Budi  ', buyerEmail: ' budi@example.com ', buyerPhone: '0812-3456 7890' });
+    expect(parsed).toEqual({ productIds: [productId], buyerName: 'Budi', buyerEmail: 'budi@example.com', buyerPhone: '6281234567890' });
   });
 
   it('checkout: accepts a cart, dedupes ids, rejects empty or oversized carts', () => {
     const other = '22222222-2222-4222-8222-222222222222';
-    const base = { buyerName: 'Budi', buyerEmail: 'budi@example.com' };
+    const base = { buyerName: 'Budi', buyerEmail: 'budi@example.com', buyerPhone: '+6281234567890' };
     expect(checkoutDtoSchema.parse({ ...base, productIds: [productId, other, productId] }).productIds).toEqual([productId, other]);
     expect(checkoutDtoSchema.safeParse({ ...base, productIds: [] }).success).toBe(false);
     expect(checkoutDtoSchema.safeParse({ ...base, productIds: Array(21).fill(productId) }).success).toBe(false);
@@ -33,12 +33,14 @@ describe('DTO validation', () => {
   it.each([
     ['non-uuid product', { productId: 'abc', buyerName: 'Budi', buyerEmail: 'budi@example.com' }],
     ['short name', { productId, buyerName: 'B', buyerEmail: 'budi@example.com' }],
-    ['invalid email', { productId, buyerName: 'Budi', buyerEmail: 'budi@' }],
+    ['invalid email', { productId, buyerName: 'Budi', buyerEmail: 'budi@', buyerPhone: '081234567890' }],
+    ['missing phone', { productId, buyerName: 'Budi', buyerEmail: 'budi@example.com' }],
+    ['landline phone', { productId, buyerName: 'Budi', buyerEmail: 'budi@example.com', buyerPhone: '0215551234' }],
     ['missing email', { productId, buyerName: 'Budi' }],
     ['client-supplied price is ignored, not trusted', null],
   ])('checkout: rejects %s', (_label, input) => {
     if (input === null) {
-      const parsed = checkoutDtoSchema.parse({ productId, buyerName: 'Budi', buyerEmail: 'b@example.com', amount: 1 });
+      const parsed = checkoutDtoSchema.parse({ productId, buyerName: 'Budi', buyerEmail: 'b@example.com', buyerPhone: '081234567890', amount: 1 });
       expect(parsed).not.toHaveProperty('amount');
       return;
     }
@@ -46,11 +48,13 @@ describe('DTO validation', () => {
   });
 
   it('product: rejects negative price, non-integer price and non-URL thumbnail', () => {
-    const base = { title: 'Template', description: 'Deskripsi produk panjang', price: 1000, thumbnail_url: 'https://x.test/a.png', file_path: 'uploads/a.zip' };
+    const base = { title: 'Template', description: 'Deskripsi produk panjang', price: 1000, thumbnail_url: 'https://x.test/a.png', delivery_url: 'https://drive.google.com/file/d/abc' };
     expect(createProductDtoSchema.safeParse(base).success).toBe(true);
     expect(createProductDtoSchema.safeParse({ ...base, price: -1 }).success).toBe(false);
     expect(createProductDtoSchema.safeParse({ ...base, price: 10.5 }).success).toBe(false);
     expect(createProductDtoSchema.safeParse({ ...base, thumbnail_url: 'uploads/a.png' }).success).toBe(false);
+    expect(createProductDtoSchema.safeParse({ ...base, delivery_url: 'javascript:alert(1)' }).success).toBe(false);
+    expect(createProductDtoSchema.safeParse({ ...base, delivery_url: undefined }).success).toBe(false);
   });
 
   it('link: rejects invalid URL', () => {

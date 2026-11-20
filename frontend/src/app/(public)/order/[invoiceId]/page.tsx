@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, Copy, Download, ExternalLink, FileSearch, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Copy, ExternalLink, FileSearch, Loader2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '@/services/api';
 import { formatRupiah } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,13 +19,14 @@ import type { Order, OrderStatus } from '@/types';
 export default function OrderStatusPage() {
   const params = useParams();
   const invoiceId = params?.invoiceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [downloads, setDownloads] = useState<Array<{ productId: string; title: string; url: string }> | null>(null);
+  // productId -> delivery link, loaded once the order is paid.
+  const [links, setLinks] = useState<Record<string, string> | null>(null);
+  const [linksFailed, setLinksFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrder = useCallback(
@@ -64,21 +66,24 @@ export default function OrderStatusPage() {
     return () => clearInterval(interval);
   }, [order, fetchOrder]);
 
-  const handleDownload = async () => {
-    if (!order || order.status !== 'PAID') return;
-    setDownloading(true);
+  const loadLinks = useCallback(async () => {
+    setLinksFailed(false);
     try {
-      const links = await api.getDownloadLinks(order.invoice_id);
-      if (links.length === 0) toast.error(t('order.downloadMissing'));
-      // One product opens directly; a cart order lists a link per product.
-      else if (links.length === 1) window.open(links[0].url, '_blank');
-      else setDownloads(links);
-    } catch (err) {
-      toast.error(t('order.downloadFailed'), { description: err instanceof Error ? err.message : undefined });
-    } finally {
-      setDownloading(false);
+      const list = await api.getDownloadLinks(invoiceId);
+      setLinks(Object.fromEntries(list.map((link) => [link.productId, link.url])));
+    } catch {
+      setLinksFailed(true);
     }
-  };
+  }, [invoiceId]);
+
+  const paid = order?.status === 'PAID';
+  useEffect(() => {
+    if (paid) loadLinks();
+  }, [paid, loadLinks]);
+
+  const items = order?.items?.length ? order.items : order?.product ? [order.product] : [];
+  const formatDate = (iso: string) =>
+    new Intl.DateTimeFormat(locale === 'id' ? 'id-ID' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
   const copyInvoice = async () => {
     if (!order) return;
@@ -137,6 +142,50 @@ export default function OrderStatusPage() {
               </button>
             </div>
 
+            {order.status === 'PAID' && (
+              <section aria-labelledby="your-products" className="space-y-2">
+                <h2 id="your-products" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('order.yourProducts')}</h2>
+                <ul className="space-y-2">
+                  {items.map((item) => {
+                    const url = links?.[item.id];
+                    return (
+                      <li key={item.id} className="flex items-center gap-3 rounded-2xl border bg-background/50 p-2">
+                        <div className="relative aspect-square w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                          {item.thumbnail_url ? (
+                            <Image src={item.thumbnail_url} alt="" fill sizes="56px" className="object-cover" />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center bg-primary/10"><Sparkles className="h-5 w-5 text-primary/50" /></span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-2 text-sm font-medium">{item.title}</p>
+                          <p className="text-xs text-muted-foreground">{formatRupiah(item.price)}</p>
+                        </div>
+                        {url ? (
+                          <Button asChild variant="brand" size="sm" className="shrink-0">
+                            <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`${t('order.open')} ${item.title}`}>
+                              {t('order.open')} <ExternalLink />
+                            </a>
+                          </Button>
+                        ) : linksFailed ? (
+                          <Button variant="outline" size="sm" className="shrink-0" onClick={loadLinks}>
+                            <RefreshCw /> {t('common.retry')}
+                          </Button>
+                        ) : links ? null : (
+                          <Loader2 className="mx-3 h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label={t('order.downloading')} />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {links && items.some((item) => !links[item.id]) && <p className="text-xs text-destructive">{t('order.downloadMissing')}</p>}
+                <p className="flex items-center justify-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                  <ShieldCheck className="h-4 w-4 text-success" /> {t('order.downloadSafe')}
+                </p>
+              </section>
+            )}
+
+            {order.status === 'PAID' && <h2 className="-mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('order.detail')}</h2>}
             <motion.dl
               initial="hidden"
               animate="show"
@@ -144,9 +193,11 @@ export default function OrderStatusPage() {
               className="divide-y rounded-2xl border bg-background/50 text-sm"
             >
               {[
-                [t('order.product'), order.items?.length ? order.items.map((item) => item.title).join(', ') : order.product?.title || t('order.productDefault')],
+                ...(order.status === 'PAID' ? [] : [[t('order.product'), items.map((item) => item.title).join(', ') || t('order.productDefault')]]),
                 [t('order.buyer'), order.buyer_name],
                 [t('order.email'), order.buyer_email],
+                ...(order.buyer_phone ? [[t('order.phone'), order.buyer_phone]] : []),
+                ...(order.paid_at ? [[t('order.paidAt'), formatDate(order.paid_at)]] : []),
                 [t('order.status'), <StatusBadge key="s" status={order.status} />],
               ].map(([k, v]) => (
                 <motion.div key={k as string} variants={{ hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0 } }} className="flex items-center justify-between gap-4 px-4 py-3">
@@ -162,29 +213,9 @@ export default function OrderStatusPage() {
 
             <div className="space-y-3">
               {order.status === 'PAID' && (
-                <>
-                  {downloads ? (
-                    <ul className="space-y-2">
-                      {downloads.map((d) => (
-                        <li key={d.productId}>
-                          <Button asChild variant="brand" size="lg" className="w-full justify-between">
-                            <a href={d.url} target="_blank" rel="noopener noreferrer">
-                              <span className="truncate">{d.title}</span> <Download />
-                            </a>
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <Button variant="brand" size="xl" className="w-full" onClick={handleDownload} disabled={downloading}>
-                      {downloading ? <Loader2 className="animate-spin" /> : <Download />}
-                      {downloading ? t('order.downloading') : t('order.download')}
-                    </Button>
-                  )}
-                  <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-4 w-4 text-success" /> {t('order.downloadSafe')}
-                  </p>
-                </>
+                <Button asChild variant="outline" size="lg" className="w-full">
+                  <Link href="/">{t('cart.continue')}</Link>
+                </Button>
               )}
               {order.status === 'PENDING' && (
                 <>

@@ -67,7 +67,7 @@ export class FulfillmentService {
       downloads = await Promise.all(
         products.map(async (product) => ({
           title: product.title,
-          url: await storageRepository.createSignedUrl('private-products', product.file_path, SIGNED_URL_EXPIRES_IN),
+          url: await deliveryUrl(product),
         })),
       );
     } catch (error) {
@@ -127,10 +127,17 @@ export class FulfillmentService {
       products.map(async (product) => ({
         productId: product.id,
         title: product.title,
-        url: await storageRepository.createSignedUrl('private-products', product.file_path, SIGNED_URL_EXPIRES_IN),
+        url: await deliveryUrl(product),
       })),
     );
   }
+}
+
+/** Link products hand out their URL as-is; legacy file products get a short-lived signed URL. */
+async function deliveryUrl(product: Product): Promise<string> {
+  if (product.delivery_url) return product.delivery_url;
+  if (product.file_path) return storageRepository.createSignedUrl('private-products', product.file_path, SIGNED_URL_EXPIRES_IN);
+  throw new Error(`Produk ${product.id} belum punya tautan.`);
 }
 
 /** Products bought in an order: its line items, or the single product of pre-cart orders. */

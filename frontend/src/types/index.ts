@@ -33,7 +33,9 @@ export interface Product {
   price: number;
   category: string;
   thumbnail_url: string | null;
-  file_path: string;
+  file_path: string | null;
+  /** Admin only: the link buyers receive after paying. */
+  delivery_url?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -45,6 +47,8 @@ export interface Order {
   product_id: string;
   buyer_name: string;
   buyer_email: string;
+  buyer_phone?: string | null;
+  paid_at?: string | null;
   amount: number;
   status: OrderStatus;
   payment_url: string | null;
@@ -66,6 +70,7 @@ export interface CheckoutPayload {
   productIds: string[];
   buyerName: string;
   buyerEmail: string;
+  buyerPhone: string;
 }
 
 export interface CheckoutResponseData {

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Copy, CreditCard, Inbox, Mail, Package, RefreshCw, Search, User } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Copy, CreditCard, Inbox, Mail, Package, Phone, RefreshCw, Search, User } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
 import type { Order, OrderStatus } from '@/types';
@@ -68,6 +68,7 @@ export default function AdminOrdersPage() {
           o.invoice_id.toLowerCase().includes(q) ||
           o.buyer_name.toLowerCase().includes(q) ||
           o.buyer_email.toLowerCase().includes(q) ||
+          (o.buyer_phone ?? '').includes(q) ||
           o.product?.title.toLowerCase().includes(q),
       )
       .sort((a, b) => {
@@ -164,6 +165,7 @@ export default function AdminOrdersPage() {
                   <TableCell>
                     <div className="font-medium">{order.buyer_name}</div>
                     <div className="text-xs text-muted-foreground">{order.buyer_email}</div>
+                    {order.buyer_phone && <div className="text-xs text-muted-foreground">{order.buyer_phone}</div>}
                   </TableCell>
                   <TableCell className="hidden max-w-[200px] truncate md:table-cell">{order.product?.title ?? '-'}</TableCell>
                   <TableCell className="font-mono font-semibold">{formatRupiah(order.amount)}</TableCell>
@@ -202,6 +204,7 @@ export default function AdminOrdersPage() {
                 {[
                   { icon: User, label: t('order.buyer'), value: viewingOrder.buyer_name },
                   { icon: Mail, label: t('order.email'), value: viewingOrder.buyer_email, copy: true },
+                  { icon: Phone, label: t('order.phone'), value: viewingOrder.buyer_phone ?? '-', copy: Boolean(viewingOrder.buyer_phone) },
                   { icon: Package, label: t('order.product'), value: viewingOrder.product?.title ?? '-' },
                   { icon: CreditCard, label: t('orders.doku'), value: viewingOrder.doku_reference_id ?? '-' },
                 ].map(({ icon: Icon, label, value, copy: canCopy }) => (

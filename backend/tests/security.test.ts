@@ -10,7 +10,7 @@ import { resendAdapter } from '@/infrastructure/resend.adapter';
 import type { Order } from '@/types';
 
 const productId = '11111111-1111-4111-8111-111111111111';
-const dto = { productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com' };
+const dto = { productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com', buyerPhone: '6281234567890' };
 const product = { id: productId, title: 'Asset', price: 25000, file_path: 'secret/asset.zip', is_active: true };
 const order = {
   id: 'o1', invoice_id: 'INV-1', product_id: productId, buyer_name: 'Buyer', buyer_email: 'buyer@example.com',

@@ -45,6 +45,7 @@ export class CheckoutService {
         invoice_id: invoiceId,
         buyer_name: dto.buyerName,
         buyer_email: dto.buyerEmail,
+        buyer_phone: dto.buyerPhone,
         product_id: items[0].id,
         amount: price,
         status: 'PENDING',
@@ -67,6 +68,7 @@ export class CheckoutService {
         amount: price,
         buyerName: dto.buyerName,
         buyerEmail: dto.buyerEmail,
+        buyerPhone: dto.buyerPhone,
         productTitle,
         lineItems: items.map((product) => ({ name: product.title, price: product.price })),
       });

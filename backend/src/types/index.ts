@@ -32,18 +32,25 @@ export interface Product {
   description: string;
   price: number;
   thumbnail_url: string;
-  file_path: string;
+  /** Legacy uploaded file in private-products; new products use delivery_url. */
+  file_path: string | null;
+  /** Secret delivery link (e.g. Google Drive). Never expose outside paid orders. */
+  delivery_url: string | null;
   category: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
+/** Catalog shape: no delivery link/file. */
+export type PublicProduct = Omit<Product, 'delivery_url' | 'file_path'>;
+
 export interface Order {
   id: string;
   invoice_id: string;
   buyer_name: string;
   buyer_email: string;
+  buyer_phone: string | null;
   product_id: string;
   amount: number;
   status: OrderStatus;
@@ -67,7 +74,7 @@ export interface OrderItem {
 export interface CatalogData {
   profile: Profile | null;
   links: Link[];
-  products: Product[];
+  products: PublicProduct[];
 }
 
 export interface AppVariables {

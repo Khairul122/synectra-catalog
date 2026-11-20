@@ -17,6 +17,10 @@ function maskEmail(email: string): string {
   return `${local.slice(0, 1)}***@${domain ?? ''}`;
 }
 
+function maskPhone(phone: string): string {
+  return `${phone.slice(0, 5)}****${phone.slice(-3)}`;
+}
+
 export function toPublicOrder(order: Order) {
   return {
     invoice_id: order.invoice_id,
@@ -24,6 +28,8 @@ export function toPublicOrder(order: Order) {
     amount: order.amount,
     buyer_name: order.buyer_name,
     buyer_email: maskEmail(order.buyer_email),
+    buyer_phone: order.buyer_phone ? maskPhone(order.buyer_phone) : null,
+    paid_at: order.status === 'PAID' ? order.updated_at : null,
     payment_url: order.status === 'PENDING' ? order.payment_url : null,
     created_at: order.created_at,
     product: order.product
