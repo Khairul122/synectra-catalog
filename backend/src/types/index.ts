@@ -12,6 +12,8 @@ export interface Profile {
   instagram_url?: string | null;
   tiktok_url?: string | null;
   youtube_url?: string | null;
+  /** Social profile URLs in display order. */
+  social_links?: string[];
   theme_color?: string | null;
   /** Store's own QRIS image for manual payment. */
   qris_image_url?: string | null;

@@ -2,7 +2,9 @@
 
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { BadgeCheck, Instagram, Music2, Youtube } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
+import { SocialIcon, socialLabel } from './SocialIcon';
+import { isHttpUrl } from '@/lib/social-platforms';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/lib/i18n';
@@ -21,11 +23,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
   if (!profile) return null;
 
   const displayName = profile.business_name || profile.display_name || 'Synectra Digital';
-  const socials = [
-    { href: profile.instagram_url, label: 'Instagram', icon: Instagram },
-    { href: profile.tiktok_url, label: 'TikTok', icon: Music2 },
-    { href: profile.youtube_url, label: 'YouTube', icon: Youtube },
-  ].filter((s) => s.href);
+  const socials = (profile.social_links ?? []).filter(isHttpUrl);
 
   return (
     <header className="text-center">
@@ -68,26 +66,26 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
       )}
 
       {socials.length > 0 && (
-        <div className="mt-4 flex justify-center gap-2">
-          {socials.map(({ href, label, icon: Icon }, i) => (
-            <Tooltip key={label}>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {socials.map((href, i) => (
+            <Tooltip key={href}>
               <TooltipTrigger asChild>
                 <motion.a
-                  href={href!}
+                  href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={label}
+                  aria-label={socialLabel(href)}
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.45 + i * 0.08, type: 'spring' }}
                   whileHover={{ y: -4, scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  className="glass flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  className="glass flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors hover:border-primary/50"
                 >
-                  <Icon className="h-5 w-5" />
+                  <SocialIcon url={href} />
                 </motion.a>
               </TooltipTrigger>
-              <TooltipContent>{label}</TooltipContent>
+              <TooltipContent>{socialLabel(href)}</TooltipContent>
             </Tooltip>
           ))}
         </div>

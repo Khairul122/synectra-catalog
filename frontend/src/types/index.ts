@@ -7,9 +7,8 @@ export interface Profile {
   bio: string | null;
   avatar_url: string | null;
   cover_banner_url?: string | null;
-  instagram_url?: string | null;
-  tiktok_url?: string | null;
-  youtube_url?: string | null;
+  /** Social profile URLs in display order; the brand icon is detected from the hostname. */
+  social_links?: string[];
   theme_color?: string | null;
   qris_image_url?: string | null;
   whatsapp_number?: string | null;

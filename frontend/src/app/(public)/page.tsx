@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function StorefrontPage() {
   const profile = await getProfile();
-  const sameAs = [profile?.instagram_url, profile?.tiktok_url, profile?.youtube_url].filter(Boolean);
+  const sameAs = profile?.social_links ?? [];
   const jsonLd = profile && {
     '@context': 'https://schema.org',
     '@type': 'Store',

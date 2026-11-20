@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { notify } from '@/components/shared/message-dialog';
-import { Check, CreditCard, ImageIcon, Instagram, Loader2, MessageCircle, Music2, Palette, QrCode, Save, Store, Youtube } from 'lucide-react';
+import { Check, CreditCard, ImageIcon, Loader2, MessageCircle, Palette, Plus, QrCode, Save, Store, Trash2 } from 'lucide-react';
+import { SocialIcon } from '@/components/storefront/SocialIcon';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
 import type { Link, PaymentMethod, Product, Profile } from '@/types';
@@ -34,9 +35,7 @@ const DEFAULT_PROFILE: Profile = {
   bio: 'Katalog produk digital, template, dan aset kreatif pilihan.',
   avatar_url: null,
   cover_banner_url: null,
-  instagram_url: null,
-  tiktok_url: null,
-  youtube_url: null,
+  social_links: [],
   theme_color: '#00A8E8',
   qris_image_url: null,
   whatsapp_number: null,
@@ -101,6 +100,14 @@ export default function AdminAppearancePage() {
     };
   }, [token]);
 
+  const setSocials = (update: (links: string[]) => string[]) => {
+    setProfile((prev) => {
+      const base = prev ?? DEFAULT_PROFILE;
+      return { ...base, social_links: update(base.social_links ?? []) };
+    });
+    setDirty(true);
+  };
+
   const set = (field: keyof Profile, value: string | null) => {
     setProfile((prev) => ({ ...(prev ?? DEFAULT_PROFILE), [field]: value }));
     setDirty(true);
@@ -111,9 +118,9 @@ export default function AdminAppearancePage() {
 
   const handleSave = async () => {
     if (!profile || !token || uploading) return;
-    for (const [label, value] of [['Instagram', profile.instagram_url], ['TikTok', profile.tiktok_url], ['YouTube', profile.youtube_url]] as const) {
-      if (value?.trim() && !validateUrl(value)) return notify.error(t('look.invalidUrl', { label }), { description: t('look.urlFormat') });
-    }
+    const socialLinks = (profile.social_links ?? []).map((u) => u.trim()).filter(Boolean);
+    const badLink = socialLinks.find((u) => !validateUrl(u));
+    if (badLink) return notify.error(t('look.invalidUrl', { label: badLink }), { description: t('look.urlFormat') });
     // Same rule as the server: Indonesian mobile number.
     const wa = (profile.whatsapp_number ?? '').replace(/[\s.-]/g, '');
     if (wa && !/^(\+?62|0)8\d{7,12}$/.test(wa)) return notify.error(t('look.invalidWa'), { description: t('look.whatsappHint') });
@@ -132,9 +139,7 @@ export default function AdminAppearancePage() {
         bio: profile.bio ?? undefined,
         avatar_url: profile.avatar_url ?? undefined,
         cover_banner_url: profile.cover_banner_url ?? undefined,
-        instagram_url: validateUrl(profile.instagram_url),
-        tiktok_url: validateUrl(profile.tiktok_url),
-        youtube_url: validateUrl(profile.youtube_url),
+        social_links: socialLinks,
         theme_color: validateHexColor(profile.theme_color),
       });
       if (updated) setProfile(updated);
@@ -206,24 +211,35 @@ export default function AdminAppearancePage() {
               <Textarea id="bio" rows={3} maxLength={300} value={profile.bio ?? ''} onChange={(e) => set('bio', e.target.value)} />
               <p className="text-right text-xs text-muted-foreground">{(profile.bio ?? '').length}/300</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {([
-                ['instagram_url', 'Instagram', Instagram],
-                ['tiktok_url', 'TikTok', Music2],
-                ['youtube_url', 'YouTube', Youtube],
-              ] as const).map(([field, label, Icon]) => {
-                const value = profile[field] ?? '';
+            <div className="space-y-2">
+              <Label>{t('look.socials')}</Label>
+              <p className="text-xs text-muted-foreground">{t('look.socialsHint')}</p>
+              {(profile.social_links ?? []).map((value, i) => {
                 const invalid = value.trim() !== '' && !validateUrl(value);
                 return (
-                  <div key={field} className="space-y-1.5">
-                    <Label htmlFor={field}>{label}</Label>
-                    <div className="group relative">
-                      <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary" />
-                      <Input id={field} value={value} onChange={(e) => set(field, e.target.value)} placeholder="https://..." aria-invalid={invalid} className={cn('pl-10', invalid && 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15')} />
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="group relative flex-1">
+                      <SocialIcon url={value} className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={value}
+                        onChange={(e) => setSocials((links) => links.map((l, j) => (j === i ? e.target.value : l)))}
+                        placeholder="https://instagram.com/tokokamu"
+                        aria-label={`${t('look.socials')} ${i + 1}`}
+                        aria-invalid={invalid}
+                        className={cn('pl-10', invalid && 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15')}
+                      />
                     </div>
+                    <Button type="button" variant="ghost" size="icon" aria-label={t('common.delete')} onClick={() => setSocials((links) => links.filter((_, j) => j !== i))}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 );
               })}
+              {(profile.social_links ?? []).length < 12 && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setSocials((links) => [...links, ''])}>
+                  <Plus className="h-4 w-4" /> {t('look.addSocial')}
+                </Button>
+              )}
             </div>
           </TabsContent>
 

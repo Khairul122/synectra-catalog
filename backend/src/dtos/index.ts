@@ -119,6 +119,7 @@ export const updateProfileDtoSchema = z.object({
   tiktok_url: optionalUrlSchema,
   youtube_url: optionalUrlSchema,
   theme_color: optionalHexColorSchema,
+  social_links: z.array(httpUrlSchema('Link media sosial harus berupa URL http/https')).max(12, 'Maksimal 12 media sosial').optional(),
   qris_image_url: optionalUrlSchema,
   whatsapp_number: z.preprocess(sanitizeEmptyString, phoneSchema.nullable().optional()),
   payment_mode: z.enum(['DOKU', 'QRIS_MANUAL']).optional(),

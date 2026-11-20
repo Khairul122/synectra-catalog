@@ -38,6 +38,7 @@ export class ProfileRepository {
         | 'instagram_url'
         | 'tiktok_url'
         | 'youtube_url'
+        | 'social_links'
         | 'qris_image_url'
         | 'whatsapp_number'
         | 'payment_mode'

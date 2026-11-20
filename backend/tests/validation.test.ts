@@ -64,6 +64,8 @@ describe('DTO validation', () => {
   it('profile: rejects javascript: URLs and bad hex colors', () => {
     expect(updateProfileDtoSchema.safeParse({ instagram_url: 'javascript:alert(1)' }).success).toBe(false);
     expect(updateProfileDtoSchema.safeParse({ theme_color: 'red' }).success).toBe(false);
+    expect(updateProfileDtoSchema.safeParse({ social_links: ['https://x.com/a', 'javascript:alert(1)'] }).success).toBe(false);
+    expect(updateProfileDtoSchema.parse({ social_links: ['https://x.com/a'] }).social_links).toEqual(['https://x.com/a']);
     expect(updateProfileDtoSchema.parse({ theme_color: '' }).theme_color).toBeNull();
   });
 
