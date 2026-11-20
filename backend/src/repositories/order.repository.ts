@@ -147,6 +147,19 @@ export class OrderRepository {
     return (data || []) as Order[];
   }
 
+  /** Orders placed with this email (case-insensitive), newest first. */
+  async getOrdersByEmail(email: string): Promise<Order[]> {
+    // ponytail: ilike scans orders; add an index on lower(buyer_email) if the table grows large.
+    const pattern = email.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select(ORDER_SELECT)
+      .ilike('buyer_email', pattern)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(`OrderRepository.getOrdersByEmail failed: ${error.message}`);
+    return (data || []) as Order[];
+  }
+
   async getAnalyticsSummary(): Promise<OrderAnalyticsSummary> {
     const { data, error } = await supabaseAdmin.from('orders').select('amount, status');
 

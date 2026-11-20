@@ -87,6 +87,19 @@ export interface CatalogData {
   products: PublicProduct[];
 }
 
+export interface Member {
+  user_id: string;
+  name: string | null;
+  phone: string | null;
+  address: string | null;
+  province: string | null;
+  city: string | null;
+  district: string | null;
+  area: string | null;
+  zip_code: string | null;
+  updated_at: string;
+}
+
 export interface AppVariables {
   validatedBody: unknown;
   validatedQuery: unknown;

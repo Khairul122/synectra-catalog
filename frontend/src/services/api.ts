@@ -1,4 +1,4 @@
-import type { Profile, Link, Product, Order, OrderStatus, AdminAnalytics, CheckoutPayload } from '@/types';
+import type { Profile, Link, Product, Order, OrderStatus, AdminAnalytics, CheckoutPayload, Member, MemberMe, MemberOrder } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -59,6 +59,31 @@ export const api = {
     const res = await fetch(`${API_BASE}/order/${invoiceId}/download`);
     const data = await handleResponse<{ data: { downloads: Array<{ productId: string; title: string; url: string }> } }>(res);
     return data.data.downloads;
+  },
+
+  // MEMBER (buyer signed in with email OTP)
+  async memberMe(token: string): Promise<MemberMe> {
+    const res = await fetch(`${API_BASE}/member/me`, { headers: { Authorization: `Bearer ${token}` } });
+    return (await handleResponse<{ data: MemberMe }>(res)).data;
+  },
+
+  async memberOrders(token: string): Promise<MemberOrder[]> {
+    const res = await fetch(`${API_BASE}/member/orders`, { headers: { Authorization: `Bearer ${token}` } });
+    return (await handleResponse<{ data: MemberOrder[] }>(res)).data;
+  },
+
+  async memberAccess(token: string, invoiceId: string): Promise<Array<{ productId: string; title: string; url: string }>> {
+    const res = await fetch(`${API_BASE}/member/orders/${encodeURIComponent(invoiceId)}/access`, { headers: { Authorization: `Bearer ${token}` } });
+    return (await handleResponse<{ data: { downloads: Array<{ productId: string; title: string; url: string }> } }>(res)).data.downloads;
+  },
+
+  async memberUpdateAccount(token: string, dto: Partial<Member>): Promise<Member> {
+    const res = await fetch(`${API_BASE}/member/account`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(dto),
+    });
+    return (await handleResponse<{ data: Member }>(res)).data;
   },
 
   // ADMIN (requires Authorization header)

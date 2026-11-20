@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { notify } from '@/components/shared/message-dialog';
 import { ArrowLeft, ArrowRight, KeyRound, Loader2, Mail, Sparkles } from 'lucide-react';
-import { sendAdminOtp, verifyAdminOtp } from '@/services/supabase';
+import { sendLoginOtp, verifyLoginOtp } from '@/services/supabase';
+import { api } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +34,7 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await sendAdminOtp(email.trim());
+      await sendLoginOtp(email.trim());
       setCode('');
       setStep('code');
       notify.success(t('login.codeSent'), { description: email.trim() });
@@ -48,9 +49,11 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await verifyAdminOtp(email.trim(), code);
+      const token = await verifyLoginOtp(email.trim(), code);
       notify.success(t('login.welcome'));
-      router.push('/admin');
+      // Store owner goes to the studio; everyone else to their purchases.
+      const me = await api.memberMe(token).catch(() => null);
+      router.push(me?.isAdmin ? '/admin' : '/member');
     } catch (err) {
       fail(err, t('login.failed'));
     } finally {

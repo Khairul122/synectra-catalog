@@ -45,6 +45,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setIsChecking(false);
       })
       .catch(async (err) => {
+        // Signed in, but not the store owner: send buyers to their member area.
+        if (err instanceof ApiError && err.status === 403) {
+          router.replace('/member');
+          return;
+        }
         if (err instanceof ApiError && err.status === 401) {
           await adminSignOut();
           router.replace('/login');

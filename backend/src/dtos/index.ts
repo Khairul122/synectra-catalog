@@ -140,3 +140,18 @@ export const dokuNotificationDtoSchema = z.object({
 });
 
 export type DokuNotificationDto = z.infer<typeof dokuNotificationDtoSchema>;
+
+const optionalText = (max: number) => z.preprocess(sanitizeEmptyString, z.string().trim().max(max).nullable().optional());
+
+export const updateMemberDtoSchema = z.object({
+  name: z.preprocess(sanitizeEmptyString, z.string().trim().min(2, 'Nama minimal 2 karakter').max(100).nullable().optional()),
+  phone: z.preprocess(sanitizeEmptyString, phoneSchema.nullable().optional()),
+  address: optionalText(500),
+  province: optionalText(100),
+  city: optionalText(100),
+  district: optionalText(100),
+  area: optionalText(100),
+  zip_code: z.preprocess(sanitizeEmptyString, z.string().trim().regex(/^\d{5}$/, 'Kode pos harus 5 digit').nullable().optional()),
+});
+
+export type UpdateMemberDto = z.infer<typeof updateMemberDtoSchema>;

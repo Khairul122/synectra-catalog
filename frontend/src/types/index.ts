@@ -104,3 +104,42 @@ export interface AdminAnalytics {
   pendingOrdersCount: number;
   failedOrdersCount: number;
 }
+
+export interface Member {
+  name: string | null;
+  phone: string | null;
+  address: string | null;
+  province: string | null;
+  city: string | null;
+  district: string | null;
+  area: string | null;
+  zip_code: string | null;
+}
+
+export interface MemberOrderItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  thumbnail_url: string | null;
+  price: number;
+}
+
+export interface MemberOrder {
+  invoice_id: string;
+  status: OrderStatus;
+  amount: number;
+  payment_method?: PaymentMethod;
+  buyer_name: string;
+  buyer_email: string;
+  buyer_phone: string | null;
+  created_at: string;
+  paid_at: string | null;
+  items: MemberOrderItem[];
+}
+
+export interface MemberMe {
+  email: string;
+  isAdmin: boolean;
+  account: Member | null;
+}

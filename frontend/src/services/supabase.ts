@@ -24,13 +24,13 @@ export function removeStoredToken(): void {
   }
 }
 
-/** Emails a one-time code. Never creates users: only existing accounts (the store owner) can sign in. */
-export async function sendAdminOtp(email: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+/** Emails a one-time code. New emails get a buyer account; admin access is still checked server-side (profiles row). */
+export async function sendLoginOtp(email: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error) throw new Error(error.message);
 }
 
-export async function verifyAdminOtp(email: string, token: string): Promise<string> {
+export async function verifyLoginOtp(email: string, token: string): Promise<string> {
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
   if (error || !data?.session?.access_token) {
     throw new Error('Kode salah atau sudah kedaluwarsa.');
