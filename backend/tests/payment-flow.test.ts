@@ -245,6 +245,14 @@ describe('manual QRIS payment', () => {
     await expect(fulfillmentService.confirmManualPayment('INV-1')).rejects.toThrow('QRIS manual');
   });
 
+  it('a failed delivery email does not fail the admin confirmation once the order is PAID', async () => {
+    vi.spyOn(fulfillmentService, 'processNotification').mockRejectedValue(new Error('API key is invalid'));
+    vi.spyOn(orderRepository, 'getOrderByInvoiceId')
+      .mockResolvedValueOnce({ ...order, payment_method: 'QRIS_MANUAL' } as Order)
+      .mockResolvedValueOnce({ ...order, payment_method: 'QRIS_MANUAL', status: 'PAID' } as Order);
+    await expect(fulfillmentService.confirmManualPayment('INV-1')).resolves.toMatchObject({ status: 'PAID', emailSent: false });
+  });
+
   it('never asks DOKU about manual orders', async () => {
     const status = vi.spyOn(dokuAdapter, 'getOrderStatus');
     await fulfillmentService.syncPendingOrder({ ...order, payment_method: 'QRIS_MANUAL' } as Order);

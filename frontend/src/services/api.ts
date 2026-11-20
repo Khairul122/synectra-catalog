@@ -174,12 +174,13 @@ export const api = {
     return data.data;
   },
 
-  async adminConfirmOrder(token: string, invoiceId: string): Promise<void> {
+  async adminConfirmOrder(token: string, invoiceId: string): Promise<{ emailSent: boolean }> {
     const res = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(invoiceId)}/confirm`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
-    await handleResponse(res);
+    const json = await handleResponse<{ data: { emailSent: boolean } }>(res);
+    return json.data;
   },
 
   async adminGetOrders(token: string, status?: OrderStatus) {

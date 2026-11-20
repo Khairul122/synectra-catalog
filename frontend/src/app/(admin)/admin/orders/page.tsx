@@ -51,8 +51,9 @@ export default function AdminOrdersPage() {
     if (!ok) return;
     setConfirming(true);
     try {
-      await api.adminConfirmOrder(token, order.invoice_id);
-      notify.success(t('orders.confirmed'), { description: order.invoice_id });
+      const { emailSent } = await api.adminConfirmOrder(token, order.invoice_id);
+      if (emailSent) notify.success(t('orders.confirmed'), { description: order.invoice_id });
+      else notify.warning(t('orders.confirmedNoEmail'), { description: t('orders.confirmedNoEmailSub') });
     } catch (err) {
       // The order may already be PAID even if the delivery email failed; the reload shows the truth.
       notify.error(t('orders.confirmFailed'), { description: err instanceof Error ? err.message : undefined });
