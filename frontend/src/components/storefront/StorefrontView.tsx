@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MessageCircle, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { MessageCircle, Search, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/shared/feedback';
 import { ProfileHeader } from './ProfileHeader';
@@ -41,11 +41,6 @@ export function StorefrontView({ profile, links, products, loading = false, fail
   }, [products, selectedCategory, search]);
 
   const storeName = profile?.business_name || profile?.display_name || 'Synectra Digital';
-  const trust = [
-    { icon: ShieldCheck, label: t('store.trustSecure') },
-    { icon: Zap, label: t('store.trustInstant') },
-    ...(profile?.whatsapp_number ? [{ icon: MessageCircle, label: t('store.trustSupport') }] : []),
-  ];
 
   const focusSearch = () => {
     const input = document.getElementById('store-search');
@@ -73,17 +68,6 @@ export function StorefrontView({ profile, links, products, loading = false, fail
       <div className="flex-1 px-4 pb-10 pt-8">
         <ProfileHeader profile={profile} loading={loading && !profile} />
         <LinkBlockList links={links} />
-
-        {!loading && profile && (
-          <ul aria-label={t('store.trustLabel')} className="mt-8 grid grid-cols-3 gap-2 text-center">
-            {trust.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex flex-col items-center gap-1.5 rounded-xl border bg-card px-2 py-3 text-[11px] font-medium leading-tight text-muted-foreground">
-                <Icon className="h-5 w-5 text-primary" />
-                {label}
-              </li>
-            ))}
-          </ul>
-        )}
 
         <section aria-labelledby="catalog-title" className="mt-10">
           <div className="mb-4 flex items-baseline justify-between gap-2">
