@@ -156,3 +156,19 @@ describe('payment flow', () => {
     expect(create.mock.calls[0][0].invoice_id).toMatch(/^INV-\d+-[0-9a-f]{16}$/);
   });
 });
+
+describe('lost webhook fallback', () => {
+  it('marks a pending order paid when DOKU Check Status says SUCCESS', async () => {
+    vi.spyOn(dokuAdapter, 'getOrderStatus').mockResolvedValue({ status: 'SUCCESS', amount: 25000 });
+    const process = vi.spyOn(fulfillmentService, 'processNotification').mockResolvedValue({ invoiceId: 'INV-1', status: 'PAID', emailSent: true, downloadUrlGenerated: true });
+    await fulfillmentService.syncPendingOrder(order);
+    expect(process).toHaveBeenCalledWith({ order: { invoice_number: 'INV-1', amount: 25000 }, transaction: { status: 'SUCCESS' } });
+  });
+
+  it('leaves the order alone while DOKU still reports pending', async () => {
+    vi.spyOn(dokuAdapter, 'getOrderStatus').mockResolvedValue({ status: 'PENDING' });
+    const process = vi.spyOn(fulfillmentService, 'processNotification');
+    await fulfillmentService.syncPendingOrder(order);
+    expect(process).not.toHaveBeenCalled();
+  });
+});

@@ -1,6 +1,7 @@
 import { orderRepository } from '../repositories/order.repository';
 import { storageRepository } from '../repositories/storage.repository';
 import { resendAdapter } from '../infrastructure/resend.adapter';
+import { dokuAdapter } from '../infrastructure/doku.adapter';
 import type { DokuNotificationDto } from '../dtos';
 import type { Order, OrderStatus, Product } from '../types';
 
@@ -94,6 +95,25 @@ export class FulfillmentService {
 
     await orderRepository.markFulfillmentSent(invoiceId);
     return { invoiceId, status: 'PAID', emailSent: true, downloadUrlGenerated: true };
+  }
+
+  /**
+   * Fallback for lost webhooks: ask DOKU about a PENDING order and apply the answer exactly like a notification.
+   * ponytail: called on every status poll of a pending order (5s while the page is open); cache/throttle if DOKU rate-limits.
+   */
+  async syncPendingOrder(order: Order): Promise<void> {
+    if (order.status !== 'PENDING') return;
+    try {
+      const doku = await dokuAdapter.getOrderStatus(order.invoice_id);
+      if (!doku || doku.status === 'PENDING') return;
+      await this.processNotification({
+        order: { invoice_number: order.invoice_id, amount: doku.amount },
+        transaction: { status: doku.status },
+      });
+    } catch (error) {
+      // Status is already PAID before email/storage can fail, so the buyer still sees the payment.
+      console.error('[doku-sync]', order.invoice_id, error instanceof Error ? error.message : error);
+    }
   }
 
   async getDownloadLinksForOrder(invoiceId: string): Promise<Array<{ productId: string; title: string; url: string }>> {

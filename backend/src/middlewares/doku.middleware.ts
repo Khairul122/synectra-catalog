@@ -10,6 +10,7 @@ export const dokuWebhookMiddleware: MiddlewareHandler<AppEnv> = async (c, next) 
   const signature = c.req.header('Signature');
 
   if (!clientId || !requestId || !timestamp || !signature) {
+    console.warn('[doku-webhook] rejected: missing headers');
     return c.json(
       errorResponse('DOKU Webhook header tidak lengkap', 'INVALID_HEADERS'),
       400,
@@ -29,6 +30,7 @@ export const dokuWebhookMiddleware: MiddlewareHandler<AppEnv> = async (c, next) 
   );
 
   if (!isValid) {
+    console.warn(`[doku-webhook] rejected: invalid signature (timestamp ${timestamp})`);
     return c.json(
       errorResponse('DOKU Webhook signature tidak valid', 'INVALID_SIGNATURE'),
       403,

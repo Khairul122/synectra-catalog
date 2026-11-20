@@ -80,10 +80,15 @@ publicRoutes.post('/checkout', validateBody(checkoutDtoSchema), async (c) => {
 // GET /api/order/:invoiceId — Periksa status pembayaran invoice
 publicRoutes.get('/order/:invoiceId', async (c) => {
   const invoiceId = c.req.param('invoiceId');
-  const order = await checkoutService.getOrder(invoiceId);
+  let order = await checkoutService.getOrder(invoiceId);
 
   if (!order) {
     return c.json(errorResponse('Order tidak ditemukan', 'NOT_FOUND'), 404);
+  }
+
+  if (order.status === 'PENDING') {
+    await fulfillmentService.syncPendingOrder(order);
+    order = (await checkoutService.getOrder(invoiceId)) ?? order;
   }
 
   return c.json(successResponse(toPublicOrder(order)));

@@ -91,6 +91,7 @@ describe('rate limiting', () => {
 describe('public order exposure', () => {
   it('hides file path, internal errors and full email', async () => {
     vi.spyOn(orderRepository, 'getOrderByInvoiceId').mockResolvedValue(order);
+    vi.spyOn(dokuAdapter, 'getOrderStatus').mockResolvedValue(null);
     const res = await app.request('/api/order/INV-1', { headers: { 'x-forwarded-for': '10.0.0.6' } });
     const body = JSON.stringify(await res.json());
     expect(res.status).toBe(200);

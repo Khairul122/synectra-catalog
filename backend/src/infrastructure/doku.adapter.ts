@@ -30,14 +30,15 @@ export class DokuAdapter {
     requestId: string,
     timestamp: string,
     requestTarget: string,
-    digest: string,
+    digest?: string,
   ): string {
+    // GET requests (Check Status API) are signed without a Digest line.
     const rawComponent = [
       `Client-Id:${this.clientId}`,
       `Request-Id:${requestId}`,
       `Request-Timestamp:${timestamp}`,
       `Request-Target:${requestTarget}`,
-      `Digest:${digest}`,
+      ...(digest === undefined ? [] : [`Digest:${digest}`]),
     ].join('\n');
 
     const hmac = createHmac('sha256', this.secretKey).update(rawComponent, 'utf8').digest('base64');
@@ -143,6 +144,39 @@ export class DokuAdapter {
       invoiceId: params.invoiceId,
     };
   }
+
+  /** Check Status API: the source of truth when a notification never arrived. Null = unknown, try later. */
+  async getOrderStatus(invoiceId: string): Promise<DokuOrderStatus | null> {
+    if (env.DOKU_SIMULATOR) return null;
+    const requestTarget = `/orders/v1/status/${encodeURIComponent(invoiceId)}`;
+    const requestId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const response = await fetch(`${this.baseUrl}${requestTarget}`, {
+      headers: {
+        'Client-Id': this.clientId,
+        'Request-Id': requestId,
+        'Request-Timestamp': timestamp,
+        Signature: this.generateSignature(requestId, timestamp, requestTarget),
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) {
+      const detail = (await response.text().catch(() => '')).slice(0, 300);
+      console.warn(`[doku-status] ${invoiceId} -> ${response.status}: ${detail}`);
+      return null;
+    }
+    const json = (await response.json()) as { order?: { amount?: number }; transaction?: { status?: string } };
+    const status = json.transaction?.status;
+    if (status !== 'SUCCESS' && status !== 'FAILED' && status !== 'EXPIRED' && status !== 'PENDING') return null;
+    return { status, amount: json.order?.amount };
+  }
+}
+
+export type DokuTransactionStatus = 'SUCCESS' | 'FAILED' | 'EXPIRED' | 'PENDING';
+
+export interface DokuOrderStatus {
+  status: DokuTransactionStatus;
+  amount?: number;
 }
 
 export const dokuAdapter = new DokuAdapter();
