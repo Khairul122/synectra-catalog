@@ -10,14 +10,13 @@ import { useI18n } from '@/lib/i18n';
 
 interface ProductGridProps {
   products: Product[];
-  onBuy: (product: Product) => void;
   loading?: boolean;
   filtered?: boolean;
 }
 
 const GRID = 'flex flex-col gap-5';
 
-export function ProductGrid({ products, onBuy, loading = false, filtered = false }: ProductGridProps) {
+export function ProductGrid({ products, loading = false, filtered = false }: ProductGridProps) {
   const { t } = useI18n();
   if (loading) {
     return (
@@ -53,7 +52,7 @@ export function ProductGrid({ products, onBuy, loading = false, filtered = false
     <motion.div layout className={GRID}>
       <AnimatePresence>
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} onBuy={onBuy} />
+          <ProductCard key={product.id} product={product} />
         ))}
       </AnimatePresence>
     </motion.div>

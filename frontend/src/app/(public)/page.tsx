@@ -9,9 +9,8 @@ import { ProfileHeader } from '@/components/storefront/ProfileHeader';
 import { LinkBlockList } from '@/components/storefront/LinkBlockList';
 import { CategoryFilterBar } from '@/components/storefront/CategoryFilterBar';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
-import { CheckoutDrawer } from '@/components/storefront/CheckoutDrawer';
+import { StoreBar } from '@/components/storefront/StoreBar';
 import { ErrorState } from '@/components/shared/feedback';
-import { Preferences } from '@/components/shared/theme-toggle';
 import { useI18n } from '@/lib/i18n';
 import { applyBrandTheme } from '@/lib/utils';
 import type { Profile, Link, Product } from '@/types';
@@ -24,7 +23,6 @@ export default function StorefrontPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -67,23 +65,21 @@ export default function StorefrontPage() {
 
       <div className="relative mx-auto min-h-screen w-full max-w-[600px] bg-background/60 pb-24 shadow-sm">
         {/* Lynk.id-style app bar */}
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between bg-zinc-800 px-2 text-white">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSearchOpen((open) => !open)}
-            aria-label={t('store.toggleSearch')}
-            aria-expanded={searchOpen}
-            className="rounded-full text-white hover:bg-white/10 hover:text-white"
-          >
-            {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-          </Button>
-          <span className="font-display text-lg font-bold">{t('store.home')}</span>
-          {/* .dark scopes the dark tokens so the controls read well on the dark bar in both themes */}
-          <div className="dark">
-            <Preferences />
-          </div>
-        </header>
+        <StoreBar
+          title={t('store.home')}
+          left={
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchOpen((open) => !open)}
+              aria-label={t('store.toggleSearch')}
+              aria-expanded={searchOpen}
+              className="rounded-full text-white hover:bg-white/10 hover:text-white"
+            >
+              {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </Button>
+          }
+        />
 
         <AnimatePresence initial={false}>
           {searchOpen && (
@@ -109,7 +105,7 @@ export default function StorefrontPage() {
             {failed ? (
               <ErrorState message={t('store.loadError')} onRetry={fetchCatalog} retrying={loading} />
             ) : (
-              <ProductGrid products={filteredProducts} loading={loading} filtered={Boolean(search || selectedCategory)} onBuy={setSelectedProduct} />
+              <ProductGrid products={filteredProducts} loading={loading} filtered={Boolean(search || selectedCategory)} />
             )}
           </section>
         </div>
@@ -118,8 +114,6 @@ export default function StorefrontPage() {
       <footer className="fixed inset-x-0 bottom-0 z-40 mx-auto flex h-12 w-full max-w-[600px] items-center justify-center gap-1.5 border-t bg-card text-sm font-semibold text-muted-foreground">
         <Sparkles className="h-4 w-4 text-primary" /> {t('store.footer')}
       </footer>
-
-      <CheckoutDrawer product={selectedProduct} isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} />
     </main>
   );
 }

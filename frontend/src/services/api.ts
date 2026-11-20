@@ -30,7 +30,7 @@ export const api = {
   },
 
   async checkout(
-    dto: { productId: string; buyerName: string; buyerEmail: string },
+    dto: { productIds: string[]; buyerName: string; buyerEmail: string },
     idempotencyKey?: string,
   ): Promise<{ invoiceId: string; paymentUrl: string }> {
     const res = await fetch(`${API_BASE}/checkout`, {
@@ -52,10 +52,10 @@ export const api = {
     return data.data;
   },
 
-  async getDownloadLink(invoiceId: string): Promise<string> {
+  async getDownloadLinks(invoiceId: string): Promise<Array<{ productId: string; title: string; url: string }>> {
     const res = await fetch(`${API_BASE}/order/${invoiceId}/download`);
-    const data = await handleResponse<{ data: { downloadUrl: string } }>(res);
-    return data.data.downloadUrl;
+    const data = await handleResponse<{ data: { downloads: Array<{ productId: string; title: string; url: string }> } }>(res);
+    return data.data.downloads;
   },
 
   // ADMIN (requires Authorization header)

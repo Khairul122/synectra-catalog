@@ -7,6 +7,9 @@ type OrderInsert = Omit<
 > &
   Partial<Pick<Order, 'fulfillment_state' | 'payment_error' | 'fulfillment_error' | 'payment_url' | 'idempotency_key'>>;
 
+// Every order read carries its line items; `product` is the first item (kept for older single-product code).
+const ORDER_SELECT = '*, product:products(*), items:order_items(price, product:products(*))';
+
 /** Thrown when an insert collides with an existing idempotency key. */
 export class DuplicateOrderError extends Error {}
 
@@ -19,9 +22,7 @@ export interface OrderAnalyticsSummary {
 }
 
 export class OrderRepository {
-  async createOrder(
-    payload: OrderInsert,
-  ): Promise<Order> {
+  async createOrder(payload: OrderInsert, items: Array<{ product_id: string; price: number }>): Promise<Order> {
     const { data, error } = await supabaseAdmin
       .from('orders')
       .insert(payload)
@@ -35,13 +36,22 @@ export class OrderRepository {
       throw new Error(`OrderRepository.createOrder failed: ${error.message}`);
     }
 
+    // ponytail: two inserts, not one transaction. A failed item insert leaves a PENDING order with no
+    // payment URL (never payable, never delivered); move both into an RPC if that ever matters.
+    const { error: itemsError } = await supabaseAdmin
+      .from('order_items')
+      .insert(items.map((item) => ({ ...item, order_id: data.id })));
+    if (itemsError) {
+      throw new Error(`OrderRepository.createOrder items failed: ${itemsError.message}`);
+    }
+
     return data as Order;
   }
 
   async getOrderByInvoiceId(invoiceId: string): Promise<Order | null> {
     const { data, error } = await supabaseAdmin
       .from('orders')
-      .select('*, product:products(*)')
+      .select(ORDER_SELECT)
       .eq('invoice_id', invoiceId)
       .maybeSingle();
 
@@ -55,7 +65,7 @@ export class OrderRepository {
   async getOrderByIdempotencyKey(key: string): Promise<Order | null> {
     const { data, error } = await supabaseAdmin
       .from('orders')
-      .select('*, product:products(*)')
+      .select(ORDER_SELECT)
       .eq('idempotency_key', key)
       .maybeSingle();
     if (error) throw new Error(`OrderRepository.getOrderByIdempotencyKey failed: ${error.message}`);
@@ -76,7 +86,7 @@ export class OrderRepository {
       .update({ status, ...(dokuReference ? { doku_reference: dokuReference } : {}) })
       .eq('invoice_id', invoiceId)
       .eq('status', 'PENDING')
-      .select('*, product:products(*)')
+      .select(ORDER_SELECT)
       .maybeSingle();
     if (error || !data) throw new Error(`OrderRepository.updateOrderStatus failed: ${error?.message ?? 'Order no longer PENDING'}`);
     return data as Order;
@@ -86,7 +96,7 @@ export class OrderRepository {
     const { data, error } = await supabaseAdmin.from('orders')
       .update({ status: 'PAID', ...(reference ? { doku_reference: reference } : {}) })
       .eq('invoice_id', invoiceId).eq('status', 'PENDING')
-      .select('*, product:products(*)').maybeSingle();
+      .select(ORDER_SELECT).maybeSingle();
     if (error) throw new Error(`OrderRepository.claimPayment failed: ${error.message}`);
     return data as Order | null;
   }
@@ -122,7 +132,7 @@ export class OrderRepository {
   async getAllOrders(status?: OrderStatus): Promise<Order[]> {
     let query = supabaseAdmin
       .from('orders')
-      .select('*, product:products(*)')
+      .select(ORDER_SELECT)
       .order('created_at', { ascending: false });
 
     if (status) {

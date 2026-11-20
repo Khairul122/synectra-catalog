@@ -22,9 +22,8 @@ describe('ResendAdapter', () => {
       new ResendAdapter().sendProductDeliveryEmail({
         to: 'buyer@example.com',
         buyerName: 'Buyer',
-        productTitle: 'Asset',
         invoiceId: 'INV-TEST',
-        signedDownloadUrl: 'https://example.com/download',
+        downloads: [{ title: 'Asset', url: 'https://example.com/download' }],
       }),
     ).rejects.toThrow('provider unavailable');
   });

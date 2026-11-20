@@ -19,7 +19,15 @@ beforeEach(() => vi.restoreAllMocks());
 describe('DTO validation', () => {
   it('checkout: accepts valid input and trims', () => {
     const parsed = checkoutDtoSchema.parse({ productId, buyerName: '  Budi  ', buyerEmail: ' budi@example.com ' });
-    expect(parsed).toEqual({ productId, buyerName: 'Budi', buyerEmail: 'budi@example.com' });
+    expect(parsed).toEqual({ productIds: [productId], buyerName: 'Budi', buyerEmail: 'budi@example.com' });
+  });
+
+  it('checkout: accepts a cart, dedupes ids, rejects empty or oversized carts', () => {
+    const other = '22222222-2222-4222-8222-222222222222';
+    const base = { buyerName: 'Budi', buyerEmail: 'budi@example.com' };
+    expect(checkoutDtoSchema.parse({ ...base, productIds: [productId, other, productId] }).productIds).toEqual([productId, other]);
+    expect(checkoutDtoSchema.safeParse({ ...base, productIds: [] }).success).toBe(false);
+    expect(checkoutDtoSchema.safeParse({ ...base, productIds: Array(21).fill(productId) }).success).toBe(false);
   });
 
   it.each([

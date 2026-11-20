@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils';
@@ -10,11 +11,10 @@ import { useI18n } from '@/lib/i18n';
 
 interface ProductCardProps {
   product: Product;
-  onBuy: (product: Product) => void;
 }
 
-/** Lynk.id product block: bordered card with a hard offset shadow, thumbnail + text row, full-width CTA. */
-export function ProductCard({ product, onBuy }: ProductCardProps) {
+/** Lynk.id product block: bordered card with a hard offset shadow, thumbnail + text row, full-width CTA. Opens the product page. */
+export function ProductCard({ product }: ProductCardProps) {
   const { t } = useI18n();
   const [imageError, setImageError] = useState(false);
 
@@ -25,9 +25,13 @@ export function ProductCard({ product, onBuy }: ProductCardProps) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
       transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-      onClick={() => onBuy(product)}
-      className="group cursor-pointer rounded-md border-2 border-primary bg-card p-2.5 shadow-[4px_4px_0_0_hsl(var(--primary))] transition-[transform,box-shadow] duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_hsl(var(--primary))] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0_0_hsl(var(--primary))]"
+      className="group rounded-md border-2 border-primary bg-card p-2.5 shadow-[4px_4px_0_0_hsl(var(--primary))] transition-[transform,box-shadow] duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_hsl(var(--primary))] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0_0_hsl(var(--primary))]"
     >
+      <Link
+        href={`/p/${product.id}`}
+        aria-label={t('store.buyLabel', { title: product.title })}
+        className="block rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
       <div className="flex gap-3">
         <div className="relative aspect-square w-[88px] shrink-0 overflow-hidden rounded bg-muted">
           {product.thumbnail_url && !imageError ? (
@@ -53,17 +57,10 @@ export function ProductCard({ product, onBuy }: ProductCardProps) {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onBuy(product);
-        }}
-        aria-label={t('store.buyLabel', { title: product.title })}
-        className="mt-3 w-full rounded-lg border border-primary/40 bg-card py-3 font-display text-base font-bold shadow-md transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
+      <span className="mt-3 block w-full rounded-lg border border-primary/40 bg-card py-3 text-center font-display text-base font-bold shadow-md transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
         {t('store.buyNow')}
-      </button>
+      </span>
+      </Link>
     </motion.article>
   );
 }

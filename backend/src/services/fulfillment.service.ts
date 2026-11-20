@@ -2,7 +2,7 @@ import { orderRepository } from '../repositories/order.repository';
 import { storageRepository } from '../repositories/storage.repository';
 import { resendAdapter } from '../infrastructure/resend.adapter';
 import type { DokuNotificationDto } from '../dtos';
-import type { OrderStatus } from '../types';
+import type { Order, OrderStatus, Product } from '../types';
 
 const SIGNED_URL_EXPIRES_IN = 86400;
 
@@ -53,20 +53,21 @@ export class FulfillmentService {
       return { invoiceId, status: 'PAID', emailSent: false, downloadUrlGenerated: false };
     }
 
-    const product = paidOrder.product;
-    if (!product) {
+    const products = orderProducts(paidOrder);
+    if (products.length === 0) {
       await orderRepository.recordFulfillmentError(invoiceId, 'storage', 'Produk order tidak ditemukan.').catch((error) => {
         console.error('[Fulfillment Error Record]', error);
       });
       throw new Error(`Produk untuk order ${invoiceId} tidak ditemukan.`);
     }
 
-    let signedUrl: string;
+    let downloads: Array<{ title: string; url: string }>;
     try {
-      signedUrl = await storageRepository.createSignedUrl(
-        'private-products',
-        product.file_path,
-        SIGNED_URL_EXPIRES_IN,
+      downloads = await Promise.all(
+        products.map(async (product) => ({
+          title: product.title,
+          url: await storageRepository.createSignedUrl('private-products', product.file_path, SIGNED_URL_EXPIRES_IN),
+        })),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Gagal membuat signed URL';
@@ -80,9 +81,8 @@ export class FulfillmentService {
       await resendAdapter.sendProductDeliveryEmail({
         to: paidOrder.buyer_email,
         buyerName: paidOrder.buyer_name,
-        productTitle: product.title,
         invoiceId: paidOrder.invoice_id,
-        signedDownloadUrl: signedUrl,
+        downloads,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Gagal mengirim email fulfillment';
@@ -96,18 +96,27 @@ export class FulfillmentService {
     return { invoiceId, status: 'PAID', emailSent: true, downloadUrlGenerated: true };
   }
 
-  async getDownloadLinkForOrder(invoiceId: string): Promise<string> {
+  async getDownloadLinksForOrder(invoiceId: string): Promise<Array<{ productId: string; title: string; url: string }>> {
     const order = await orderRepository.getOrderByInvoiceId(invoiceId);
-    if (!order || order.status !== 'PAID' || !order.product) {
+    const products = order ? orderProducts(order) : [];
+    if (!order || order.status !== 'PAID' || products.length === 0) {
       throw new Error('Akses unduhan ditolak: Pesanan belum lunas atau tidak valid.');
     }
 
-    return storageRepository.createSignedUrl(
-      'private-products',
-      order.product.file_path,
-      SIGNED_URL_EXPIRES_IN,
+    return Promise.all(
+      products.map(async (product) => ({
+        productId: product.id,
+        title: product.title,
+        url: await storageRepository.createSignedUrl('private-products', product.file_path, SIGNED_URL_EXPIRES_IN),
+      })),
     );
   }
+}
+
+/** Products bought in an order: its line items, or the single product of pre-cart orders. */
+export function orderProducts(order: Order): Product[] {
+  if (order.items?.length) return order.items.map((item) => item.product).filter(Boolean);
+  return order.product ? [order.product] : [];
 }
 
 export const fulfillmentService = new FulfillmentService();

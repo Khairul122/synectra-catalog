@@ -22,9 +22,38 @@ describe('payment flow', () => {
     const create = vi.spyOn(orderRepository, 'createOrder').mockResolvedValue(order);
     vi.spyOn(orderRepository, 'setPaymentDetails').mockResolvedValue(undefined);
     vi.spyOn(dokuAdapter, 'createCheckout').mockResolvedValue({ paymentUrl: 'https://example.com/pay', referenceId: 'REF-1', invoiceId: 'INV-1' });
-    const result = await checkoutService.initiateCheckout({ productId, buyerName: 'Buyer', buyerEmail: 'buyer@example.com' });
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ amount: 25000, status: 'PENDING' }));
+    const result = await checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com' });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ amount: 25000, status: 'PENDING' }), [{ product_id: productId, price: 25000 }]);
     expect(result.amount).toBe(25000);
+  });
+
+  it('charges the database total of every cart product and sends one DOKU line per product', async () => {
+    const second = { ...product, id: '22222222-2222-4222-8222-222222222222', title: 'Second', price: 10000 };
+    vi.spyOn(productRepository, 'getProductById').mockImplementation(async (id) => (id === productId ? product : second) as never);
+    const create = vi.spyOn(orderRepository, 'createOrder').mockResolvedValue({ ...order, amount: 35000 });
+    vi.spyOn(orderRepository, 'setPaymentDetails').mockResolvedValue(undefined);
+    const doku = vi.spyOn(dokuAdapter, 'createCheckout').mockResolvedValue({ paymentUrl: 'https://example.com/pay', referenceId: 'R', invoiceId: 'x' });
+    const result = await checkoutService.initiateCheckout({ productIds: [productId, second.id], buyerName: 'Buyer', buyerEmail: 'buyer@example.com' });
+    expect(result.amount).toBe(35000);
+    expect(create.mock.calls[0][1]).toEqual([{ product_id: productId, price: 25000 }, { product_id: second.id, price: 10000 }]);
+    expect(doku).toHaveBeenCalledWith(expect.objectContaining({ amount: 35000, lineItems: [{ name: 'Asset', price: 25000 }, { name: 'Second', price: 10000 }] }));
+  });
+
+  it('delivers one signed link per order item in a single email', async () => {
+    const second = { ...product, id: 'p2', title: 'Second', file_path: 'second.zip' };
+    const cartOrder = { ...order, items: [{ price: 25000, product }, { price: 10000, product: second }] } as Order;
+    vi.spyOn(orderRepository, 'getOrderByInvoiceId').mockResolvedValue(cartOrder);
+    vi.spyOn(orderRepository, 'claimPayment').mockResolvedValue({ ...cartOrder, status: 'PAID' });
+    vi.spyOn(orderRepository, 'claimFulfillment').mockResolvedValue(true);
+    vi.spyOn(orderRepository, 'markFulfillmentSent').mockResolvedValue(undefined);
+    vi.spyOn(storageRepository, 'createSignedUrl').mockImplementation(async (_b, path) => `https://example.com/${path}`);
+    const send = vi.spyOn(resendAdapter, 'sendProductDeliveryEmail').mockResolvedValue({ id: 'ok' });
+    await fulfillmentService.processNotification(notification);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].downloads).toEqual([
+      { title: 'Asset', url: 'https://example.com/asset.zip' },
+      { title: 'Second', url: 'https://example.com/second.zip' },
+    ]);
   });
 
   it('records payment creation failure without marking paid', async () => {
@@ -32,7 +61,7 @@ describe('payment flow', () => {
     vi.spyOn(orderRepository, 'createOrder').mockResolvedValue(order);
     vi.spyOn(dokuAdapter, 'createCheckout').mockRejectedValue(new Error('provider unavailable'));
     const record = vi.spyOn(orderRepository, 'recordPaymentError').mockResolvedValue(undefined);
-    await expect(checkoutService.initiateCheckout({ productId, buyerName: 'Buyer', buyerEmail: 'buyer@example.com' })).rejects.toThrow('provider unavailable');
+    await expect(checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com' })).rejects.toThrow('provider unavailable');
     expect(record).toHaveBeenCalledWith('INV-1', expect.stringContaining('provider unavailable'));
   });
 
@@ -123,7 +152,7 @@ describe('payment flow', () => {
     const create = vi.spyOn(orderRepository, 'createOrder').mockImplementation(async (p) => ({ ...order, invoice_id: p.invoice_id }));
     vi.spyOn(orderRepository, 'setPaymentDetails').mockResolvedValue(undefined);
     vi.spyOn(dokuAdapter, 'createCheckout').mockResolvedValue({ paymentUrl: 'https://example.com/pay', referenceId: 'R', invoiceId: 'x' });
-    await checkoutService.initiateCheckout({ productId, buyerName: 'Buyer', buyerEmail: 'buyer@example.com' });
+    await checkoutService.initiateCheckout({ productIds: [productId], buyerName: 'Buyer', buyerEmail: 'buyer@example.com' });
     expect(create.mock.calls[0][0].invoice_id).toMatch(/^INV-\d+-[0-9a-f]{16}$/);
   });
 });

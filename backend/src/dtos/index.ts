@@ -1,10 +1,26 @@
 import { z } from 'zod';
 
-export const checkoutDtoSchema = z.object({
-  productId: z.string().uuid('ID produk harus berupa format UUID yang valid'),
+const productIdSchema = z.string().uuid('ID produk harus berupa format UUID yang valid');
+
+// Cart checkout sends productIds; a single legacy productId is accepted and normalized.
+export const checkoutDtoSchema = z.preprocess(
+  (raw) => {
+    if (raw && typeof raw === 'object' && !('productIds' in raw) && 'productId' in raw) {
+      const { productId, ...rest } = raw as Record<string, unknown>;
+      return { ...rest, productIds: [productId] };
+    }
+    return raw;
+  },
+  z.object({
+  productIds: z
+    .array(productIdSchema)
+    .min(1, 'Keranjang kosong')
+    .max(20, 'Maksimal 20 produk per checkout')
+    .transform((ids) => Array.from(new Set(ids))),
   buyerName: z.string().trim().min(2, 'Nama pembeli minimal 2 karakter').max(100),
   buyerEmail: z.string().trim().email('Format email tidak valid'),
-});
+  }),
+);
 
 export type CheckoutDto = z.infer<typeof checkoutDtoSchema>;
 

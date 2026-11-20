@@ -24,6 +24,7 @@ export default function OrderStatusPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloads, setDownloads] = useState<Array<{ productId: string; title: string; url: string }> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrder = useCallback(
@@ -67,9 +68,11 @@ export default function OrderStatusPage() {
     if (!order || order.status !== 'PAID') return;
     setDownloading(true);
     try {
-      const url = await api.getDownloadLink(order.invoice_id);
-      if (url) window.open(url, '_blank');
-      else toast.error(t('order.downloadMissing'));
+      const links = await api.getDownloadLinks(order.invoice_id);
+      if (links.length === 0) toast.error(t('order.downloadMissing'));
+      // One product opens directly; a cart order lists a link per product.
+      else if (links.length === 1) window.open(links[0].url, '_blank');
+      else setDownloads(links);
     } catch (err) {
       toast.error(t('order.downloadFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
@@ -141,7 +144,7 @@ export default function OrderStatusPage() {
               className="divide-y rounded-2xl border bg-background/50 text-sm"
             >
               {[
-                [t('order.product'), order.product?.title || t('order.productDefault')],
+                [t('order.product'), order.items?.length ? order.items.map((item) => item.title).join(', ') : order.product?.title || t('order.productDefault')],
                 [t('order.buyer'), order.buyer_name],
                 [t('order.email'), order.buyer_email],
                 [t('order.status'), <StatusBadge key="s" status={order.status} />],
@@ -160,10 +163,24 @@ export default function OrderStatusPage() {
             <div className="space-y-3">
               {order.status === 'PAID' && (
                 <>
-                  <Button variant="brand" size="xl" className="w-full" onClick={handleDownload} disabled={downloading}>
-                    {downloading ? <Loader2 className="animate-spin" /> : <Download />}
-                    {downloading ? t('order.downloading') : t('order.download')}
-                  </Button>
+                  {downloads ? (
+                    <ul className="space-y-2">
+                      {downloads.map((d) => (
+                        <li key={d.productId}>
+                          <Button asChild variant="brand" size="lg" className="w-full justify-between">
+                            <a href={d.url} target="_blank" rel="noopener noreferrer">
+                              <span className="truncate">{d.title}</span> <Download />
+                            </a>
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Button variant="brand" size="xl" className="w-full" onClick={handleDownload} disabled={downloading}>
+                      {downloading ? <Loader2 className="animate-spin" /> : <Download />}
+                      {downloading ? t('order.downloading') : t('order.download')}
+                    </Button>
+                  )}
                   <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                     <ShieldCheck className="h-4 w-4 text-success" /> {t('order.downloadSafe')}
                   </p>

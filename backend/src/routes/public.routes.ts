@@ -3,7 +3,7 @@ import { catalogService } from '../services/catalog.service';
 import { checkoutService, CheckoutError } from '../services/checkout.service';
 import { rateLimit } from '../middlewares/rate-limit.middleware';
 import type { Order } from '../types';
-import { fulfillmentService } from '../services/fulfillment.service';
+import { fulfillmentService, orderProducts } from '../services/fulfillment.service';
 import { validateBody } from '../middlewares/validate.middleware';
 import { checkoutDtoSchema, type CheckoutDto } from '../dtos';
 import { successResponse, errorResponse } from '../utils/response';
@@ -35,6 +35,12 @@ export function toPublicOrder(order: Order) {
           thumbnail_url: order.product.thumbnail_url,
         }
       : undefined,
+    items: orderProducts(order).map((product) => ({
+      id: product.id,
+      title: product.title,
+      price: product.price,
+      thumbnail_url: product.thumbnail_url,
+    })),
   };
 }
 
@@ -87,8 +93,8 @@ publicRoutes.get('/order/:invoiceId', async (c) => {
 publicRoutes.get('/order/:invoiceId/download', async (c) => {
   const invoiceId = c.req.param('invoiceId');
   try {
-    const downloadUrl = await fulfillmentService.getDownloadLinkForOrder(invoiceId);
-    return c.json(successResponse({ downloadUrl }, 'Tautan unduhan berhasil dibuat'));
+    const downloads = await fulfillmentService.getDownloadLinksForOrder(invoiceId);
+    return c.json(successResponse({ downloadUrl: downloads[0].url, downloads }, 'Tautan unduhan berhasil dibuat'));
   } catch (error) {
     console.error('[download]', error instanceof Error ? error.message : error);
     return c.json(errorResponse('Akses unduhan ditolak: Pesanan belum lunas atau tidak valid.', 'DOWNLOAD_DENIED'), 403);

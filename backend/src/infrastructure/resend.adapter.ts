@@ -4,9 +4,9 @@ import { env } from '../config/env';
 export interface SendDeliveryEmailParams {
   to: string;
   buyerName: string;
-  productTitle: string;
   invoiceId: string;
-  signedDownloadUrl: string;
+  /** One signed link per purchased product. */
+  downloads: Array<{ title: string; url: string }>;
 }
 
 const escapeHtml = (value: string) =>
@@ -24,12 +24,24 @@ export class ResendAdapter {
   async sendProductDeliveryEmail(rawParams: SendDeliveryEmailParams): Promise<{ id: string }> {
     // buyerName comes from the public checkout form: escape everything interpolated into HTML.
     const params = {
-      ...rawParams,
       buyerName: escapeHtml(rawParams.buyerName),
-      productTitle: escapeHtml(rawParams.productTitle),
       invoiceId: escapeHtml(rawParams.invoiceId),
-      signedDownloadUrl: escapeHtml(rawParams.signedDownloadUrl),
     };
+    const downloadRows = rawParams.downloads
+      .map(
+        (d) => `
+    <div style="background: #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <p style="font-size: 16px; font-weight: 600; color: #f8fafc; margin: 0 0 12px;">${escapeHtml(d.title)}</p>
+      <a href="${escapeHtml(d.url)}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">
+        Unduh Aset Digital
+      </a>
+    </div>`,
+      )
+      .join('');
+    const subjectTitle =
+      rawParams.downloads.length === 1
+        ? rawParams.downloads[0].title
+        : `${rawParams.downloads.length} produk`;
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="id">
@@ -49,20 +61,12 @@ export class ResendAdapter {
       Terima kasih telah berbelanja di Synectra. Pembayaran untuk pesanan <strong>${params.invoiceId}</strong> telah berhasil kami verifikasi.
     </p>
 
-    <div style="background: #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-      <p style="font-size: 13px; color: #94a3b8; margin: 0 0 6px;">Produk Digital:</p>
-      <p style="font-size: 16px; font-weight: 600; color: #f8fafc; margin: 0;">${params.productTitle}</p>
-    </div>
-
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${params.signedDownloadUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">
-        Unduh Aset Digital Anda
-      </a>
-    </div>
+    <p style="font-size: 13px; color: #94a3b8; margin: 0 0 8px;">Produk Digital:</p>
+${downloadRows}
 
     <div style="background: #0f172a; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px;">
       <p style="font-size: 12px; color: #cbd5e1; margin: 0; line-height: 1.5;">
-        <strong>Perhatian Keamanan:</strong> Tautan unduhan ini bersifat rahasia dan akan kedaluwarsa secara otomatis dalam <strong>24 jam</strong>. Pastikan Anda segera mengunduh dan menyimpan cadangan aset Anda.
+        <strong>Perhatian Keamanan:</strong> Tautan unduhan di atas bersifat rahasia dan akan kedaluwarsa secara otomatis dalam <strong>24 jam</strong>. Pastikan Anda segera mengunduh dan menyimpan cadangan aset Anda.
       </p>
     </div>
 
@@ -83,7 +87,7 @@ export class ResendAdapter {
         this.resend.emails.send({
           from: env.MAIL_FROM_ADDRESS,
           to: rawParams.to,
-          subject: `[Synectra] Unduh Aset Digital Anda: ${rawParams.productTitle}`,
+          subject: `[Synectra] Unduh Aset Digital Anda: ${subjectTitle}`,
           html: htmlContent,
         }),
         new Promise<never>((_, reject) =>

@@ -56,6 +56,12 @@ export interface Order {
   created_at: string;
   updated_at: string;
   product?: Product;
+  items?: OrderItem[];
+}
+
+export interface OrderItem {
+  price: number;
+  product: Product;
 }
 
 export interface CatalogData {

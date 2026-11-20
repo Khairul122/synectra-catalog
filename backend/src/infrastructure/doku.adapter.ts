@@ -7,6 +7,8 @@ export interface CreateDokuPaymentParams {
   buyerName: string;
   buyerEmail: string;
   productTitle: string;
+  /** One entry per cart product; DOKU requires their prices to sum to `amount`. Defaults to a single line. */
+  lineItems?: Array<{ name: string; price: number }>;
 }
 
 export interface DokuPaymentResponse {
@@ -78,13 +80,10 @@ export class DokuAdapter {
         invoice_number: params.invoiceId,
         amount: params.amount,
         callback_url: `${env.APP_URL}/order/${params.invoiceId}`,
-        line_items: [
-          {
-            name: params.productTitle,
-            price: params.amount,
-            quantity: 1,
-          },
-        ],
+        line_items: (params.lineItems ?? [{ name: params.productTitle, price: params.amount }]).map((item) => ({
+          ...item,
+          quantity: 1,
+        })),
       },
       payment: {
         payment_due_date: 60, // 60 minutes

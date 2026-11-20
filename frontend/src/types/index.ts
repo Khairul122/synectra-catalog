@@ -52,6 +52,8 @@ export interface Order {
   created_at: string;
   updated_at: string;
   product?: Product;
+  /** Every product in the order (cart checkout). */
+  items?: Array<Pick<Product, 'id' | 'title' | 'price' | 'thumbnail_url'>>;
 }
 
 export interface CatalogData {
@@ -61,7 +63,7 @@ export interface CatalogData {
 }
 
 export interface CheckoutPayload {
-  productId: string;
+  productIds: string[];
   buyerName: string;
   buyerEmail: string;
 }

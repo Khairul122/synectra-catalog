@@ -26,14 +26,16 @@ export class CheckoutService {
       if (existing) return this.replay(existing, dto);
     }
 
-    const product = await productRepository.getProductById(dto.productId);
-
-    if (!product || !product.is_active) {
+    // ponytail: one lookup per product (cart max 20); batch with `.in()` if carts grow.
+    const products = await Promise.all(dto.productIds.map((id) => productRepository.getProductById(id)));
+    if (products.some((product) => !product || !product.is_active)) {
       throw new CheckoutError('Produk tidak ditemukan atau sedang dinonaktifkan.');
     }
+    const items = products as NonNullable<(typeof products)[number]>[];
 
-    // Security: Price is determined solely by the database product record, never from client request
-    const price = product.price;
+    // Security: prices come solely from the database product records, never from the client request
+    const price = items.reduce((sum, product) => sum + product.price, 0);
+    const productTitle = items.length === 1 ? items[0].title : `${items[0].title} + ${items.length - 1} produk lainnya`;
     // Unguessable: the invoice id is the only key for the public order/download endpoints.
     const invoiceId = `INV-${Date.now()}-${randomBytes(8).toString('hex')}`;
 
@@ -43,12 +45,12 @@ export class CheckoutService {
         invoice_id: invoiceId,
         buyer_name: dto.buyerName,
         buyer_email: dto.buyerEmail,
-        product_id: product.id,
+        product_id: items[0].id,
         amount: price,
         status: 'PENDING',
         doku_reference: null,
         idempotency_key: idempotencyKey ?? null,
-      });
+      }, items.map((product) => ({ product_id: product.id, price: product.price })));
     } catch (error) {
       // Concurrent request with the same key won the insert race.
       if (error instanceof DuplicateOrderError && idempotencyKey) {
@@ -65,7 +67,8 @@ export class CheckoutService {
         amount: price,
         buyerName: dto.buyerName,
         buyerEmail: dto.buyerEmail,
-        productTitle: product.title,
+        productTitle,
+        lineItems: items.map((product) => ({ name: product.title, price: product.price })),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'DOKU checkout gagal';
@@ -81,12 +84,14 @@ export class CheckoutService {
       invoiceId: order.invoice_id,
       amount: price,
       paymentUrl: paymentResult.paymentUrl,
-      productTitle: product.title,
+      productTitle,
     };
   }
 
   private replay(existing: Order, dto: CheckoutDto): CheckoutResult {
-    if (existing.product_id !== dto.productId || existing.buyer_email !== dto.buyerEmail) {
+    const existingIds = existing.items?.map((item) => item.product.id) ?? [existing.product_id];
+    const sameCart = [...existingIds].sort().join() === [...dto.productIds].sort().join();
+    if (!sameCart || existing.buyer_email !== dto.buyerEmail) {
       throw new CheckoutError('Idempotency-Key sudah dipakai untuk checkout lain.', 409);
     }
     if (!existing.payment_url) {
