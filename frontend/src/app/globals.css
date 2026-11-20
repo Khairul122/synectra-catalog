@@ -98,7 +98,8 @@
     --brand: var(--brand-l);
     --ring: var(--brand-l);
   }
-  .dark[data-brand] {
+  .dark[data-brand],
+  .dark [data-brand] {
     --primary: var(--brand-d);
     --brand: var(--brand-d);
     --ring: var(--brand-d);

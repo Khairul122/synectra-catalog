@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, CheckCircle2, Copy, CreditCard, Inbox, Loader2, Mail, Package, Phone, QrCode, RefreshCw, Search, User } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
@@ -39,19 +39,25 @@ export default function AdminOrdersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [confirmStep, setConfirmStep] = useState<'idle' | 'ask' | 'saving'>('idle');
+  const [confirming, setConfirming] = useState(false);
 
   const confirmPayment = async (order: Order) => {
     if (!token) return;
-    setConfirmStep('saving');
+    const ok = await notify.confirm({
+      title: t('orders.confirmTitle'),
+      description: t('orders.confirmHint'),
+      confirmLabel: t('orders.confirmSure'),
+    });
+    if (!ok) return;
+    setConfirming(true);
     try {
       await api.adminConfirmOrder(token, order.invoice_id);
-      toast.success(t('orders.confirmed'), { description: order.invoice_id });
+      notify.success(t('orders.confirmed'), { description: order.invoice_id });
     } catch (err) {
       // The order may already be PAID even if the delivery email failed; the reload shows the truth.
-      toast.error(t('orders.confirmFailed'), { description: err instanceof Error ? err.message : undefined });
+      notify.error(t('orders.confirmFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
-      setConfirmStep('idle');
+      setConfirming(false);
       setViewingOrder(null);
       fetchOrders();
     }
@@ -64,7 +70,7 @@ export default function AdminOrdersPage() {
       else setLoading(true);
       setError(null);
       setOrders(await api.adminGetOrders(token, statusFilter === 'ALL' ? undefined : statusFilter));
-      if (manual) toast.success(t('orders.reloaded'));
+      if (manual) notify.success(t('orders.reloaded'));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('orders.loadError'));
     } finally {
@@ -98,7 +104,7 @@ export default function AdminOrdersPage() {
 
   const copy = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
-    toast.success(t('common.copied', { label }));
+    notify.success(t('common.copied', { label }));
   };
 
   return (
@@ -241,18 +247,9 @@ export default function AdminOrdersPage() {
                 {viewingOrder.payment_method === 'QRIS_MANUAL' && viewingOrder.status === 'PENDING' && (
                   <div className="space-y-2 rounded-2xl border border-warning/40 bg-warning/10 p-4">
                     <p className="text-xs text-muted-foreground">{t('orders.confirmHint')}</p>
-                    {confirmStep === 'idle' ? (
-                      <Button variant="brand" className="w-full" onClick={() => setConfirmStep('ask')}>
-                        <CheckCircle2 /> {t('orders.confirm')}
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button variant="outline" className="flex-1" onClick={() => setConfirmStep('idle')} disabled={confirmStep === 'saving'}>{t('common.cancel')}</Button>
-                        <Button variant="brand" className="flex-1" onClick={() => confirmPayment(viewingOrder)} disabled={confirmStep === 'saving'}>
-                          {confirmStep === 'saving' && <Loader2 className="animate-spin" />} {t('orders.confirmSure')}
-                        </Button>
-                      </div>
-                    )}
+                    <Button variant="brand" className="w-full" onClick={() => confirmPayment(viewingOrder)} disabled={confirming}>
+                      {confirming ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} {t('orders.confirm')}
+                    </Button>
                   </div>
                 )}
                 <Separator />

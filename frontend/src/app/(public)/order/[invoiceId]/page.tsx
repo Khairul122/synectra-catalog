@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import Image from 'next/image';
 import { ArrowLeft, Copy, ExternalLink, FileSearch, Loader2, MessageCircle, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '@/services/api';
@@ -39,11 +39,11 @@ export default function OrderStatusPage() {
           setError(t('order.notFoundInvoice'));
         } else {
           setOrder((prev) => {
-            if (prev?.status === 'PENDING' && data.status === 'PAID') toast.success(t('order.paidToast'));
+            if (prev?.status === 'PENDING' && data.status === 'PAID') notify.success(t('order.paidToast'));
             return data;
           });
           setError(null);
-          if (isManualRefresh && data.status === 'PENDING') toast.info(t('order.notYet'), { description: t('order.notYetSub') });
+          if (isManualRefresh && data.status === 'PENDING') notify.info(t('order.notYet'), { description: t('order.notYetSub') });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : t('order.loadError'));
@@ -73,8 +73,9 @@ export default function OrderStatusPage() {
       setLinks(Object.fromEntries(list.map((link) => [link.productId, link.url])));
     } catch {
       setLinksFailed(true);
+      notify.error(t('order.downloadFailed'), { description: t('order.downloadFailedSub') });
     }
-  }, [invoiceId]);
+  }, [invoiceId, t]);
 
   const paid = order?.status === 'PAID';
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function OrderStatusPage() {
   const copyInvoice = async () => {
     if (!order) return;
     await navigator.clipboard.writeText(order.invoice_id);
-    toast.success(t('common.copied', { label: t('order.invoice') }));
+    notify.success(t('common.copied', { label: t('order.invoice') }));
   };
 
   return (

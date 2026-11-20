@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
-import { Toaster } from '@/components/ui/sonner';
+import { MessageDialogHost } from '@/components/shared/message-dialog';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { I18nProvider } from '@/lib/i18n';
 import './globals.css';
@@ -12,8 +12,9 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakart
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
-  title: 'Synectra Digital Catalog',
-  description: 'Digital catalog Synectra Jasa Digital',
+  metadataBase: process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL) : undefined,
+  title: { default: 'Synectra Jasa Digital', template: '%s | Synectra Jasa Digital' },
+  description: 'Produk digital Synectra Jasa Digital. Bayar online, akses langsung setelah pembayaran.',
 };
 
 export const viewport: Viewport = {
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           <I18nProvider>
             <TooltipProvider delayDuration={200}>
               {children}
-              <Toaster richColors closeButton position="top-center" />
+              <MessageDialogHost />
             </TooltipProvider>
           </I18nProvider>
         </ThemeProvider>

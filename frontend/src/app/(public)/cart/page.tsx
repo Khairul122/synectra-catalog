@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/shared/feedback';
 import { StoreBar } from '@/components/storefront/StoreBar';
 import { cart, useCart } from '@/lib/cart';
+import { notify } from '@/components/shared/message-dialog';
 import { useI18n } from '@/lib/i18n';
 import { formatRupiah } from '@/lib/utils';
 
@@ -71,7 +72,10 @@ export default function CartPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => cart.remove(item.id)}
+                        onClick={async () => {
+                          const ok = await notify.confirm({ title: t('cart.removeTitle'), description: item.title, confirmLabel: t('common.delete'), destructive: true });
+                          if (ok) cart.remove(item.id);
+                        }}
                         aria-label={t('cart.remove', { title: item.title })}
                         className="shrink-0 text-muted-foreground hover:text-destructive"
                       >

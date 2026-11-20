@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 import { adminSignIn } from '@/services/supabase';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,11 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       await adminSignIn(email, password);
-      toast.success(t('login.welcome'));
+      notify.success(t('login.welcome'));
       router.push('/admin');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('login.failed'));
+      notify.error(t('login.failed'), { description: err instanceof Error ? err.message : undefined });
       setShakeKey((k) => k + 1);
     } finally {
       setLoading(false);

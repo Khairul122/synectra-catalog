@@ -62,6 +62,12 @@ export class AdminService {
   }
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<Profile> {
+    // QRIS as the only payment method needs both the QR and the WhatsApp number, or checkout would dead-end.
+    const current = await profileRepository.getProfile();
+    const next = { ...current, ...dto };
+    if (next.payment_mode === 'QRIS_MANUAL' && (!next.qris_image_url || !next.whatsapp_number)) {
+      throw new Error('Isi gambar QRIS dan nomor WhatsApp sebelum mengaktifkan pembayaran QRIS.');
+    }
     return profileRepository.updateProfile(id, dto);
   }
 

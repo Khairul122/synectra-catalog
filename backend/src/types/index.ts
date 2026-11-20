@@ -17,6 +17,8 @@ export interface Profile {
   qris_image_url?: string | null;
   /** Admin WhatsApp (628…) where buyers confirm manual payments. */
   whatsapp_number?: string | null;
+  /** The single active payment method; buyers do not choose. */
+  payment_mode?: PaymentMethod;
   created_at: string;
   updated_at: string;
 }

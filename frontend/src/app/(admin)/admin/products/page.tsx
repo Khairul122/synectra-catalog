@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import { Link2, Loader2, MoreVertical, Package, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
@@ -115,13 +115,13 @@ export default function AdminProductsPage() {
       if (editingProduct) await api.adminUpdateProduct(token, editingProduct.id, dto);
       else await api.adminCreateProduct(token, dto);
 
-      toast.success(editingProduct ? t('products.updated') : t('products.added'), { description: rest.title });
+      notify.success(editingProduct ? t('products.updated') : t('products.added'), { description: rest.title });
       setShowModal(false);
       fetchProducts();
     } catch (err) {
       const message = err instanceof Error ? err.message : t('products.saveFailed');
       setFormError(message);
-      toast.error(t('products.saveFailed'), { description: message });
+      notify.error(t('products.saveFailed'), { description: message });
     } finally {
       setSaving(false);
     }
@@ -133,10 +133,10 @@ export default function AdminProductsPage() {
     try {
       await api.adminDeleteProduct(token, deleteTarget.id);
       setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-      toast.success(t('products.deleted'), { description: deleteTarget.title });
+      notify.success(t('products.deleted'), { description: deleteTarget.title });
       setDeleteTarget(null);
     } catch (err) {
-      toast.error(t('products.deleteFailed'), { description: err instanceof Error ? err.message : undefined });
+      notify.error(t('products.deleteFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setDeleting(false);
     }
@@ -148,10 +148,10 @@ export default function AdminProductsPage() {
     setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_active: !p.is_active } : p)));
     try {
       await api.adminUpdateProduct(token, product.id, { is_active: !product.is_active });
-      toast.success(product.is_active ? t('products.hidden') : t('products.shown'), { description: product.title });
+      notify.success(product.is_active ? t('products.hidden') : t('products.shown'), { description: product.title });
     } catch (err) {
       setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_active: product.is_active } : p)));
-      toast.error(t('products.toggleFailed'), { description: err instanceof Error ? err.message : undefined });
+      notify.error(t('products.toggleFailed'), { description: err instanceof Error ? err.message : undefined });
     }
   };
 
@@ -265,7 +265,7 @@ export default function AdminProductsPage() {
                   ) : undefined
                 }
                 onFile={(file) => {
-                  if (!file.type.startsWith('image/')) return toast.error(t('products.errImage'));
+                  if (!file.type.startsWith('image/')) return notify.error(t('products.errImage'));
                   setFormData((f) => ({ ...f, thumbnail_file: file }));
                   setThumbnailPreview(URL.createObjectURL(file));
                 }}

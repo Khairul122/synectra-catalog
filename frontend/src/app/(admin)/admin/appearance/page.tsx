@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { toast } from 'sonner';
-import { Check, ImageIcon, Instagram, Loader2, MessageCircle, Music2, Palette, QrCode, Save, Store, Youtube } from 'lucide-react';
+import { notify } from '@/components/shared/message-dialog';
+import { Check, CreditCard, ImageIcon, Instagram, Loader2, MessageCircle, Music2, Palette, QrCode, Save, Store, Youtube } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import { api } from '@/services/api';
-import type { Profile } from '@/types';
+import type { Link, PaymentMethod, Product, Profile } from '@/types';
+import { StorefrontView } from '@/components/storefront/StorefrontView';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dropzone, putWithProgress } from '@/components/shared/dropzone';
-import { cn } from '@/lib/utils';
+import { brandVars, cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 
 const PRESET_COLORS = [
@@ -39,6 +40,7 @@ const DEFAULT_PROFILE: Profile = {
   theme_color: '#00A8E8',
   qris_image_url: null,
   whatsapp_number: null,
+  payment_mode: 'DOKU',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -67,6 +69,20 @@ export default function AdminAppearancePage() {
   const [dirty, setDirty] = useState(false);
   const [progress, setProgress] = useState<{ avatar: number | null; cover: number | null; qris: number | null }>({ avatar: null, cover: null, qris: null });
 
+  const [previewLinks, setPreviewLinks] = useState<Link[]>([]);
+  const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    if (!token) return;
+    Promise.all([api.adminGetLinks(token), api.adminGetProducts(token)])
+      .then(([links, products]) => {
+        setPreviewLinks(links);
+        setPreviewProducts(products.filter((p) => p.is_active));
+      })
+      .catch(() => {
+        // Preview still shows the profile; the store data errors surface on their own pages.
+      });
+  }, [token]);
+
   useEffect(() => {
     if (!token) return;
     let isMounted = true;
@@ -76,7 +92,7 @@ export default function AdminAppearancePage() {
       .then((data) => isMounted && setProfile(data || DEFAULT_PROFILE))
       .catch((err) => {
         if (!isMounted) return;
-        toast.error(t('look.loadFailed'), { description: err.message });
+        notify.error(t('look.loadFailed'), { description: err.message });
         setProfile(DEFAULT_PROFILE);
       })
       .finally(() => isMounted && setLoading(false));
@@ -93,17 +109,21 @@ export default function AdminAppearancePage() {
   const handleSave = async () => {
     if (!profile || !token) return;
     for (const [label, value] of [['Instagram', profile.instagram_url], ['TikTok', profile.tiktok_url], ['YouTube', profile.youtube_url]] as const) {
-      if (value?.trim() && !validateUrl(value)) return toast.error(t('look.invalidUrl', { label }), { description: t('look.urlFormat') });
+      if (value?.trim() && !validateUrl(value)) return notify.error(t('look.invalidUrl', { label }), { description: t('look.urlFormat') });
     }
     // Same rule as the server: Indonesian mobile number.
     const wa = (profile.whatsapp_number ?? '').replace(/[\s.-]/g, '');
-    if (wa && !/^(\+?62|0)8\d{7,12}$/.test(wa)) return toast.error(t('look.invalidWa'), { description: t('look.whatsappHint') });
+    if (wa && !/^(\+?62|0)8\d{7,12}$/.test(wa)) return notify.error(t('look.invalidWa'), { description: t('look.whatsappHint') });
+    if (profile.payment_mode === 'QRIS_MANUAL' && (!profile.qris_image_url || !wa)) {
+      return notify.warning(t('look.qrisIncomplete'), { description: t('look.qrisOff') });
+    }
     setSaving(true);
     try {
       const updated = await api.adminUpdateProfile(token, profile.id, {
         // Empty string clears the value server-side (turns QRIS off).
         qris_image_url: profile.qris_image_url ?? '',
         whatsapp_number: wa,
+        payment_mode: profile.payment_mode ?? 'DOKU',
         business_name: profile.business_name ?? undefined,
         display_name: profile.display_name ?? undefined,
         bio: profile.bio ?? undefined,
@@ -116,9 +136,9 @@ export default function AdminAppearancePage() {
       });
       if (updated) setProfile(updated);
       setDirty(false);
-      toast.success(t('look.saved'), { description: t('look.savedSub') });
+      notify.success(t('look.saved'), { description: t('look.savedSub') });
     } catch (err) {
-      toast.error(t('look.saveFailed'), { description: err instanceof Error ? err.message : undefined });
+      notify.error(t('look.saveFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setSaving(false);
     }
@@ -126,8 +146,8 @@ export default function AdminAppearancePage() {
 
   const upload = async (file: File, kind: 'avatar' | 'cover' | 'qris') => {
     if (!token) return;
-    if (!file.type.startsWith('image/')) return toast.error(t('look.errImage'));
-    if (file.size > 5 * 1024 * 1024) return toast.error(t('look.errSize'));
+    if (!file.type.startsWith('image/')) return notify.error(t('look.errImage'));
+    if (file.size > 5 * 1024 * 1024) return notify.error(t('look.errSize'));
     const field = kind === 'avatar' ? 'avatar_url' : kind === 'qris' ? 'qris_image_url' : 'cover_banner_url';
     const previous = profile?.[field] ?? null;
     set(field, URL.createObjectURL(file));
@@ -137,10 +157,10 @@ export default function AdminAppearancePage() {
       await putWithProgress(res.uploadUrl, file, (pct) => setProgress((p) => ({ ...p, [kind]: pct })), locale);
       if (!res.publicUrl) throw new Error(t('look.noPublicUrl'));
       set(field, res.publicUrl);
-      toast.success(kind === 'avatar' ? t('look.avatarUploaded') : kind === 'qris' ? t('look.qrisUploaded') : t('look.bannerUploaded'), { description: t('look.rememberSave') });
+      notify.success(kind === 'avatar' ? t('look.avatarUploaded') : kind === 'qris' ? t('look.qrisUploaded') : t('look.bannerUploaded'), { description: t('look.rememberSave') });
     } catch (err) {
       set(field, previous);
-      toast.error(t('look.uploadFailed'), { description: err instanceof Error ? err.message : undefined });
+      notify.error(t('look.uploadFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setTimeout(() => setProgress((p) => ({ ...p, [kind]: null })), 600);
     }
@@ -258,7 +278,17 @@ export default function AdminAppearancePage() {
                   }
                 />
                 {profile.qris_image_url && (
-                  <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive" onClick={() => set('qris_image_url', null)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      const ok = await notify.confirm({ title: t('look.qrisDeleteTitle'), description: t('look.qrisDeleteSub'), confirmLabel: t('common.delete'), destructive: true });
+                      if (!ok) return;
+                      set('qris_image_url', null);
+                      if (profile.payment_mode === 'QRIS_MANUAL') set('payment_mode', 'DOKU');
+                    }}
+                  >
                     {t('common.delete')}
                   </Button>
                 )}
@@ -273,11 +303,44 @@ export default function AdminAppearancePage() {
                   </div>
                   <p id="whatsapp-hint" className="text-xs text-muted-foreground">{t('look.whatsappHint')}</p>
                 </div>
-                <p className={cn('rounded-xl p-3 text-xs', profile.qris_image_url && profile.whatsapp_number ? 'bg-success/10 text-success' : 'bg-muted/60 text-muted-foreground')}>
-                  {profile.qris_image_url && profile.whatsapp_number ? t('look.qrisOn') : t('look.qrisOff')}
-                </p>
               </div>
             </div>
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-sm font-medium">{t('look.paymentMode')}</legend>
+              <p className="mb-2 text-xs text-muted-foreground">{t('look.paymentModeHint')}</p>
+              {([
+                ['DOKU', CreditCard, t('look.modeDoku'), t('look.modeDokuSub'), false],
+                ['QRIS_MANUAL', QrCode, t('look.modeQris'), profile.qris_image_url && profile.whatsapp_number ? t('look.modeQrisSub') : t('look.qrisOff'), !(profile.qris_image_url && profile.whatsapp_number)],
+              ] as const).map(([value, Icon, title, sub, disabled]) => {
+                const active = (profile.payment_mode ?? 'DOKU') === value;
+                return (
+                  <label
+                    key={value}
+                    className={cn(
+                      'flex items-center gap-3 rounded-2xl border p-4 transition-colors',
+                      active ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+                      disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_mode"
+                      value={value}
+                      checked={active}
+                      disabled={disabled}
+                      onChange={() => set('payment_mode', value as PaymentMethod)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <Icon className="h-6 w-6 shrink-0 text-primary" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{title}</span>
+                      <span className="block text-xs text-muted-foreground">{sub}</span>
+                    </span>
+                    {active && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">{t('look.modeActive')}</span>}
+                  </label>
+                );
+              })}
+            </fieldset>
           </TabsContent>
 
           <TabsContent value="theme" className="glass space-y-5 rounded-3xl p-6 data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:slide-in-from-bottom-2">
@@ -313,52 +376,14 @@ export default function AdminAppearancePage() {
           </TabsContent>
         </Tabs>
 
-        {/* Live phone preview */}
+        {/* Live phone preview: the same component buyers see */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <p className="mb-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('look.preview')}</p>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-[300px] rounded-[2.5rem] border-[10px] border-foreground/90 bg-background shadow-2xl">
-            <div className="h-[560px] overflow-y-auto rounded-[1.8rem]">
-              <div className="relative aspect-[1200/628]" style={{ background: profile.cover_banner_url ? undefined : themeColor }}>
-                {profile.cover_banner_url && (
-                  <img src={profile.cover_banner_url} alt="" className="h-full w-full object-cover" />
-                )}
-              </div>
-              <div className="px-4 pb-6 text-center">
-                <div className="mx-auto -mt-9 h-[72px] w-[72px] overflow-hidden rounded-full border-4 border-background bg-muted">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold" style={{ color: themeColor }}>
-                      {(profile.business_name || 'S').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <motion.p key={profile.business_name} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} className="mt-2 font-display font-bold">
-                  {profile.business_name || t('look.storePlaceholder')}
-                </motion.p>
-                <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{profile.bio}</p>
-                <div className="mt-3 flex justify-center gap-2">
-                  {[profile.instagram_url && Instagram, profile.tiktok_url && Music2, profile.youtube_url && Youtube].filter(Boolean).map((Icon, i) => {
-                    const I = Icon as typeof Instagram;
-                    return <span key={i} className="flex h-7 w-7 items-center justify-center rounded-full border"><I className="h-3.5 w-3.5" /></span>;
-                  })}
-                </div>
-                <div className="mt-4 space-y-2">
-                  {['Portofolio', 'Konsultasi'].map((t) => (
-                    <div key={t} className="rounded-xl border p-2.5 text-left text-xs font-medium">{t}</div>
-                  ))}
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {[0, 1].map((i) => (
-                    <div key={i} className="overflow-hidden rounded-xl border text-left">
-                      <div className="aspect-square bg-muted" />
-                      <div className="space-y-1.5 p-2">
-                        <div className="h-2 w-3/4 rounded bg-muted" />
-                        <motion.div layout className="rounded-md py-1 text-center text-[10px] font-semibold text-white" style={{ backgroundColor: themeColor }}>Beli</motion.div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-[320px] rounded-[2.5rem] border-[10px] border-foreground/90 bg-background shadow-2xl">
+            <div data-brand="" style={brandVars(themeColor)} className="h-[600px] overflow-y-auto overflow-x-hidden rounded-[1.8rem] bg-background">
+              {/* inert: links and buttons in the preview must not navigate away from the editor */}
+              <div inert className="min-h-full select-none">
+                <StorefrontView profile={profile} links={previewLinks} products={previewProducts} />
               </div>
             </div>
           </motion.div>

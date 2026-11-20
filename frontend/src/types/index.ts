@@ -13,6 +13,7 @@ export interface Profile {
   theme_color?: string | null;
   qris_image_url?: string | null;
   whatsapp_number?: string | null;
+  payment_mode?: PaymentMethod;
   created_at: string;
   updated_at: string;
 }
@@ -78,7 +79,6 @@ export interface CheckoutPayload {
   buyerName: string;
   buyerEmail: string;
   buyerPhone: string;
-  paymentMethod: PaymentMethod;
 }
 
 export interface CheckoutResponseData {

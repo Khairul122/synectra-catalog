@@ -36,7 +36,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="relative aspect-[1200/628] w-full overflow-hidden rounded-3xl shadow-xl shadow-primary/10"
       >
-        <Image src={profile.cover_banner_url} alt="" fill priority sizes="600px" className="object-cover" />
+        <Image src={profile.cover_banner_url} alt="" fill priority sizes="600px" unoptimized={profile.cover_banner_url.startsWith('blob:')} className="object-cover" />
       </motion.div>
       )}
 
@@ -48,7 +48,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
       >
         <div className="relative h-full w-full overflow-hidden rounded-full border-4 border-background bg-card ring-2 ring-primary/40">
           {profile.avatar_url ? (
-            <Image src={profile.avatar_url} alt={displayName} fill sizes="96px" className="object-cover" />
+            <Image src={profile.avatar_url} alt={displayName} fill sizes="96px" unoptimized={profile.avatar_url.startsWith('blob:')} className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-primary/15 font-display text-4xl font-bold text-primary">
               {displayName.charAt(0).toUpperCase()}

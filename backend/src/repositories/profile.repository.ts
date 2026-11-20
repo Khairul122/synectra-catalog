@@ -40,6 +40,7 @@ export class ProfileRepository {
         | 'youtube_url'
         | 'qris_image_url'
         | 'whatsapp_number'
+        | 'payment_mode'
         | 'theme_color'
       >
     >,

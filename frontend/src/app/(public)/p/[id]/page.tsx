@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import { ArrowLeft, PackageOpen, Share2, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,7 +33,7 @@ export default function ProductPage() {
       if (navigator.share) await navigator.share({ title: product?.title, url });
       else {
         await navigator.clipboard.writeText(url);
-        toast.success(t('product.linkCopied'));
+        notify.success(t('product.linkCopied'));
       }
     } catch {
       // Share sheet dismissed.
@@ -43,7 +43,7 @@ export default function ProductPage() {
   const addToCart = () => {
     if (!product) return;
     cart.add(product);
-    toast.success(t('cart.added'), { action: { label: t('cart.open'), onClick: () => router.push('/cart') } });
+    notify.success(t('cart.added'), { action: { label: t('cart.open'), onClick: () => router.push('/cart') } });
   };
 
   if (failed) {

@@ -11,6 +11,7 @@ import { api, ApiError } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Preferences } from '@/components/shared/theme-toggle';
+import { notify } from '@/components/shared/message-dialog';
 import { useI18n, type MessageKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +57,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [router]);
 
   const handleLogout = async () => {
+    const ok = await notify.confirm({ title: t('admin.logoutTitle'), description: t('admin.logoutSub'), confirmLabel: t('admin.logout'), destructive: true });
+    if (!ok) return;
     await adminSignOut();
     router.replace('/login');
   };

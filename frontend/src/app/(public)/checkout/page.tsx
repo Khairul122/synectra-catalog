@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode }
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import { ArrowLeft, Loader2, Lock, QrCode, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,6 @@ import { cart, useCart } from '@/lib/cart';
 import { useI18n } from '@/lib/i18n';
 import { formatRupiah } from '@/lib/utils';
 import { api } from '@/services/api';
-import type { PaymentMethod } from '@/types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -36,10 +35,8 @@ function Checkout() {
   const buyNowId = useSearchParams().get('product');
   const cartItems = useCart();
   const { products, profile, loading, failed, retry } = useCatalogProducts();
-  // Manual QRIS only once the admin has set both the QR image and the WhatsApp number.
-  const qrisAvailable = Boolean(profile?.qris_image_url && profile?.whatsapp_number);
-  const [method, setMethod] = useState<PaymentMethod>('DOKU');
-  const paymentMethod: PaymentMethod = qrisAvailable ? method : 'DOKU';
+  // The store runs one payment method, set by the admin; the server enforces it.
+  const qris = profile?.payment_mode === 'QRIS_MANUAL';
 
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
@@ -58,7 +55,7 @@ function Checkout() {
   useEffect(() => {
     if (!staleCart) return;
     cart.keep(selected.map((p) => p.id));
-    toast.warning(t('checkout.unavailable'));
+    notify.warning(t('checkout.unavailable'));
   }, [staleCart]); // Intentionally keyed on detection only: selected/t change identity every render.
 
   const submit = async (e: FormEvent) => {
@@ -73,10 +70,11 @@ function Checkout() {
       phone: /^(\+?62|0)8\d{7,12}$/.test(phone.replace(/[\s.-]/g, '')) ? undefined : t('checkout.errPhone'),
     };
     setErrors(nextErrors);
-    if (nextErrors.name || nextErrors.email || nextErrors.phone || selected.length === 0) return;
+    if (nextErrors.name || nextErrors.email || nextErrors.phone) return notify.warning(t('checkout.fixForm'), { description: t('checkout.fixFormSub') });
+    if (selected.length === 0) return;
 
-    const dto = { productIds: selected.map((p) => p.id), buyerName: name, buyerEmail: email, buyerPhone: phone, paymentMethod };
-    const signature = `${dto.productIds.join()}|${name}|${email}|${phone}|${paymentMethod}`;
+    const dto = { productIds: selected.map((p) => p.id), buyerName: name, buyerEmail: email, buyerPhone: phone };
+    const signature = `${dto.productIds.join()}|${name}|${email}|${phone}`;
     if (idempotencyRef.current?.signature !== signature) {
       idempotencyRef.current = { signature, key: crypto.randomUUID() };
     }
@@ -85,13 +83,12 @@ function Checkout() {
     try {
       const res = await api.checkout(dto, idempotencyRef.current.key);
       if (!buyNowId) cart.clear();
-      toast.success(t('checkout.created'), { description: t('checkout.redirecting') });
       window.location.href = res.paymentUrl || `/order/${res.invoiceId}`;
     } catch (err) {
       // A failed attempt leaves an order without a payment URL; retrying with the same key would replay that 409.
       idempotencyRef.current = null;
       setSubmitting(false);
-      toast.error(t('checkout.failed'), { description: err instanceof Error ? err.message : t('checkout.failedGeneric') });
+      notify.error(t('checkout.failed'), { description: err instanceof Error ? err.message : t('checkout.failedGeneric') });
     }
   };
 
@@ -214,35 +211,13 @@ function Checkout() {
                 </div>
               </dl>
 
-              {qrisAvailable ? (
-                <fieldset className="mt-5 space-y-2">
-                  <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('checkout.method')}</legend>
-                  {([
-                    ['DOKU', Lock, t('checkout.secure'), t('checkout.secureSub')],
-                    ['QRIS_MANUAL', QrCode, t('checkout.methodQris'), t('checkout.methodQrisSub')],
-                  ] as const).map(([value, Icon, title, sub]) => (
-                    <label
-                      key={value}
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${method === value ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
-                    >
-                      <input type="radio" name="payment-method" value={value} checked={method === value} onChange={() => setMethod(value)} className="h-4 w-4 accent-primary" />
-                      <Icon className="h-6 w-6 shrink-0 text-primary" />
-                      <span>
-                        <span className="block text-sm font-semibold">{title}</span>
-                        <span className="block text-xs text-muted-foreground">{sub}</span>
-                      </span>
-                    </label>
-                  ))}
-                </fieldset>
-              ) : (
-                <div className="mt-5 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
-                  <Lock className="h-8 w-8 shrink-0 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold">{t('checkout.secure')}</p>
-                    <p className="text-xs text-muted-foreground">{t('checkout.secureSub')}</p>
-                  </div>
+              <div className="mt-5 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
+                {qris ? <QrCode className="h-8 w-8 shrink-0 text-primary" /> : <Lock className="h-8 w-8 shrink-0 text-primary" />}
+                <div>
+                  <p className="text-sm font-semibold">{qris ? t('checkout.methodQris') : t('checkout.secure')}</p>
+                  <p className="text-xs text-muted-foreground">{qris ? t('checkout.methodQrisSub') : t('checkout.secureSub')}</p>
                 </div>
-              )}
+              </div>
 
               <Button type="submit" variant="brand" size="xl" className="mt-5 w-full" disabled={submitting}>
                 {submitting && <Loader2 className="animate-spin" />}

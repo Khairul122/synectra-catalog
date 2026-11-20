@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { notify } from '@/components/shared/message-dialog';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -98,10 +98,11 @@ export default function AdminLinksPage() {
         const created = await api.adminCreateLink(token, { ...payload, sort_order: nextOrder });
         setLinks((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
       }
-      toast.success(editingLink ? t('links.updated') : t('links.added'), { description: payload.title });
+      notify.success(editingLink ? t('links.updated') : t('links.added'), { description: payload.title });
       setShowModal(false);
     } catch (err: unknown) {
       setFormError(errText(err) ?? t('links.saveFailed'));
+      notify.error(t('links.saveFailed'), { description: errText(err) });
     } finally {
       setSaving(false);
     }
@@ -113,10 +114,10 @@ export default function AdminLinksPage() {
       setDeleting(true);
       await api.adminDeleteLink(token, deleteTarget.id);
       setLinks((prev) => prev.filter((l) => l.id !== deleteTarget.id));
-      toast.success(t('links.deleted'), { description: deleteTarget.title });
+      notify.success(t('links.deleted'), { description: deleteTarget.title });
       setDeleteTarget(null);
     } catch (err: unknown) {
-      toast.error(t('links.deleteFailed'), { description: errText(err) });
+      notify.error(t('links.deleteFailed'), { description: errText(err) });
     } finally {
       setDeleting(false);
     }
@@ -130,7 +131,7 @@ export default function AdminLinksPage() {
       setLinks((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
     } catch (err: unknown) {
       setLinks((prev) => prev.map((l) => (l.id === link.id ? link : l)));
-      toast.error(t('links.toggleFailed'), { description: errText(err) });
+      notify.error(t('links.toggleFailed'), { description: errText(err) });
     }
   };
 
@@ -143,10 +144,10 @@ export default function AdminLinksPage() {
     setLinks(reordered);
     try {
       await api.adminReorderLinks(token, reordered.map(({ id, sort_order }) => ({ id, sort_order })));
-      toast.success(t('links.orderSaved'));
+      notify.success(t('links.orderSaved'));
     } catch (err: unknown) {
       setLinks(previous);
-      toast.error(t('links.orderFailed'), { description: errText(err) });
+      notify.error(t('links.orderFailed'), { description: errText(err) });
     }
   };
 

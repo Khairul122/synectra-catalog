@@ -35,12 +35,12 @@ export class CheckoutService {
     }
     const items = products as NonNullable<(typeof products)[number]>[];
 
-    const manual = dto.paymentMethod === 'QRIS_MANUAL';
-    if (manual) {
-      const profile = await profileRepository.getProfile();
-      if (!profile?.qris_image_url || !profile.whatsapp_number) {
-        throw new CheckoutError('Pembayaran QRIS belum tersedia. Silakan pilih metode lain.');
-      }
+    // The admin picks one active method; the buyer's request has no say in it.
+    const profile = await profileRepository.getProfile();
+    const paymentMethod = profile?.payment_mode ?? 'DOKU';
+    const manual = paymentMethod === 'QRIS_MANUAL';
+    if (manual && (!profile?.qris_image_url || !profile.whatsapp_number)) {
+      throw new CheckoutError('Pembayaran sedang tidak tersedia. Hubungi penjual.');
     }
 
     // Security: prices come solely from the database product records, never from the client request
@@ -56,7 +56,7 @@ export class CheckoutService {
         buyer_name: dto.buyerName,
         buyer_email: dto.buyerEmail,
         buyer_phone: dto.buyerPhone,
-        payment_method: dto.paymentMethod,
+        payment_method: paymentMethod,
         product_id: items[0].id,
         amount: price,
         status: 'PENDING',

@@ -23,6 +23,8 @@ export function CategoryFilterBar({ categories, selectedCategory, onSelectCatego
       <div className="relative">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          id="store-search"
+          type="search"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
           placeholder={t('store.search')}
