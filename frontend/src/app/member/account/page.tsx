@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { memberDisplayName, useMember } from '@/context/MemberContext';
 import { api } from '@/services/api';
@@ -39,6 +40,18 @@ export default function MemberAccountPage() {
   };
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
+  // What is actually stored. Prefilled values from past orders count as unsaved until the member saves them.
+  const baseline: Form = {
+    name: me.account?.name ?? '',
+    phone: me.account?.phone ?? '',
+    address: me.account?.address ?? '',
+    province: me.account?.province ?? '',
+    city: me.account?.city ?? '',
+    district: me.account?.district ?? '',
+    area: me.account?.area ?? '',
+    zip_code: me.account?.zip_code ?? '',
+  };
+  const dirty = (Object.keys(form) as (keyof Member)[]).some((k) => form[k] !== baseline[k]);
   const set = (key: keyof Member) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,12 +113,25 @@ export default function MemberAccountPage() {
         </div>
       </section>
 
-      <div className="mt-8 flex gap-3 border-t pt-6">
-        <Button type="submit" disabled={saving}>
-          {saving && <Loader2 className="animate-spin" />} {t('member.saveChanges')}
-        </Button>
-        <Button type="button" variant="ghost" onClick={() => setForm(initial())} disabled={saving}>{t('common.cancel')}</Button>
-      </div>
+      {/* Save bar slides in only when something changed, so the form never asks to save nothing. */}
+      <AnimatePresence>
+        {dirty && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            className="sticky bottom-4 z-10 mt-8 flex items-center justify-between gap-3 rounded-2xl border bg-card p-3 pl-4 shadow-xl"
+          >
+            <span className="text-sm text-muted-foreground">{t('member.unsaved')}</span>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={() => setForm(initial())} disabled={saving}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="animate-spin" />} {t('member.saveChanges')}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </form>
   );
 }
