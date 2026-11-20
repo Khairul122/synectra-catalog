@@ -26,12 +26,15 @@ export default function MemberPurchasesPage() {
     return library.filter((p) => (!category || p.item.category === category) && (!q || p.item.title.toLowerCase().includes(q)));
   }, [library, category, search]);
 
-  if (ordersError) return <ErrorState message={ordersError} onRetry={reloadOrders} />;
-  if (!orders) return <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>;
+  const title = <h1 className="py-6 font-display text-3xl font-bold">{t('member.nav.purchases')}</h1>;
+  if (ordersError) return <>{title}<ErrorState message={ordersError} onRetry={reloadOrders} /></>;
+  if (!orders) return <>{title}<div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div></>;
 
   if (library.length === 0) {
     const pending = orders.some((o) => o.status === 'PENDING');
     return (
+      <>
+      {title}
       <div className="py-10 text-center">
         <p className="font-semibold">{t('member.noPurchases')}</p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{pending ? t('member.noPurchasesPending') : t('member.noPurchasesSub')}</p>
@@ -39,11 +42,13 @@ export default function MemberPurchasesPage() {
           {pending ? t('member.seeTransactions') : t('member.browseStore', { store: store?.business_name || 'toko' })}
         </Link>
       </div>
+      </>
     );
   }
 
   return (
     <div>
+      {title}
       {library.length >= SEARCH_FROM && (
         <div className="mb-4 space-y-3">
           <label className="relative block">

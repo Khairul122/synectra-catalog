@@ -3,20 +3,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, LogOut } from 'lucide-react';
+import { ClipboardList, Loader2, LogOut, Menu, ShoppingBag, Store, UserRound } from 'lucide-react';
 import { getStoredToken, adminSignOut } from '@/services/supabase';
 import { api, ApiError } from '@/services/api';
 import { MemberContext, memberDisplayName } from '@/context/MemberContext';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Preferences } from '@/components/shared/theme-toggle';
 import { notify } from '@/components/shared/message-dialog';
 import { useI18n, type MessageKey } from '@/lib/i18n';
 import { applyBrandTheme, cn } from '@/lib/utils';
 import type { Member, MemberMe, MemberOrder, Profile } from '@/types';
 
-const TABS: { key: MessageKey; href: string }[] = [
-  { key: 'member.nav.purchases', href: '/member' },
-  { key: 'member.nav.transactions', href: '/member/transactions' },
-  { key: 'member.nav.account', href: '/member/account' },
+const NAV: { key: MessageKey; href: string; icon: typeof ShoppingBag }[] = [
+  { key: 'member.nav.purchases', href: '/member', icon: ShoppingBag },
+  { key: 'member.nav.transactions', href: '/member/transactions', icon: ClipboardList },
+  { key: 'member.nav.account', href: '/member/account', icon: UserRound },
 ];
 
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +30,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
   const [store, setStore] = useState<Profile | null>(null);
   const [orders, setOrders] = useState<MemberOrder[] | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const signOut = useCallback(async () => {
     await adminSignOut();
@@ -81,67 +84,87 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
   const setAccount = (account: Member) => setMe({ ...me, account });
   const storeName = store?.business_name || store?.display_name || 'Synectra';
   const isActive = (href: string) => (href === '/member' ? pathname === href || pathname.startsWith('/member/content') : pathname.startsWith(href));
+
+  const sidebar = (
+    <div className="flex h-full flex-col bg-zinc-800 p-4 text-white">
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <Link href="/" className="flex items-center gap-3 rounded-xl hover:opacity-90">
+          {store?.avatar_url ? (
+            <img src={store.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary">
+              <Store className="h-4 w-4" />
+            </span>
+          )}
+          <span className="min-w-0 truncate text-sm font-semibold">{storeName}</span>
+        </Link>
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <p className="truncate font-display text-lg font-bold">{memberDisplayName(me, orders)}</p>
+          <p className="truncate text-xs text-white/60">{me.email}</p>
+        </div>
+      </div>
+
+      <p className="mb-2 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-white/50">{t('member.menu')}</p>
+      <nav className="flex-1 space-y-1">
+        {NAV.map(({ key, href, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            onClick={() => setMobileOpen(false)}
+            aria-current={isActive(href) ? 'page' : undefined}
+            className={cn(
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
+              isActive(href) ? 'bg-white text-zinc-900 shadow' : 'text-white/85 hover:bg-white/10',
+            )}
+          >
+            <Icon className="h-4 w-4" /> {t(key)}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="border-t border-white/15 pt-3">
+        <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-white/85 hover:bg-white/10">
+          <LogOut className="h-4 w-4" /> {t('member.logout')}
+        </button>
+      </div>
+    </div>
+  );
+
   const whatsapp = store?.whatsapp_number;
 
   return (
     <MemberContext.Provider value={{ token, me, store, orders, ordersError, reloadOrders, setAccount }}>
-      <div className="flex min-h-screen flex-col bg-background">
-        {/* Same dark bar as the storefront, so the member area reads as part of the store. */}
-        <header className="sticky top-0 z-30 bg-zinc-800 text-white">
-          <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
-            <Link href="/" className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-2 hover:bg-white/10" aria-label={t('member.backToStore')}>
-              <ArrowLeft className="h-4 w-4 shrink-0 text-white/70" />
-              {store?.avatar_url && <img src={store.avatar_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />}
-              <span className="truncate font-display font-bold">{storeName}</span>
-            </Link>
-            <div className="ml-auto flex items-center gap-1">
-              <div className="dark">
-                <Preferences />
-              </div>
-              <button onClick={handleLogout} className="flex h-9 items-center gap-1.5 rounded-md px-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('member.logout')}</span>
-              </button>
-            </div>
-          </div>
-        </header>
+      <div className="flex min-h-screen bg-muted/40">
+        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 md:block">{sidebar}</aside>
 
-        <div className="mx-auto w-full max-w-3xl flex-1 px-4">
-          <div className="pb-4 pt-8">
-            <p className="font-display text-2xl font-bold">{t('member.greeting', { name: memberDisplayName(me, orders) })}</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">{me.email}</p>
-          </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b bg-background/80 px-4 py-2 backdrop-blur md:justify-end md:border-0 md:bg-transparent md:backdrop-blur-none">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('member.openMenu')}>
+                  <Menu />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 border-0 p-0">
+                <SheetTitle className="sr-only">{t('member.menu')}</SheetTitle>
+                <SheetDescription className="sr-only">{storeName}</SheetDescription>
+                {sidebar}
+              </SheetContent>
+            </Sheet>
+            <Preferences />
+          </header>
 
-          <nav aria-label={t('member.menu')} className="border-b">
-            <ul className="flex gap-5 sm:gap-6">
-              {TABS.map(({ key, href }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    aria-current={isActive(href) ? 'page' : undefined}
-                    className={cn(
-                      '-mb-px block whitespace-nowrap border-b-2 py-3 text-sm font-semibold transition-colors',
-                      isActive(href) ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {t(key)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-10 sm:px-6">{children}</main>
 
-          <main className="py-6">{children}</main>
+          {whatsapp && (
+            <footer className="pb-8 text-center text-sm text-muted-foreground">
+              {t('member.helpPrompt')}{' '}
+              <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground underline underline-offset-4">
+                {t('member.contactWhatsapp')}
+              </a>
+            </footer>
+          )}
         </div>
-
-        {whatsapp && (
-          <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-            {t('member.helpPrompt')}{' '}
-            <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground underline underline-offset-4">
-              {t('member.contactWhatsapp')}
-            </a>
-          </footer>
-        )}
       </div>
     </MemberContext.Provider>
   );

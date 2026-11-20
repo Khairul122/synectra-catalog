@@ -64,12 +64,14 @@ export default function MemberTransactionsPage() {
     setPage(1);
   };
 
-  if (ordersError) return <ErrorState message={ordersError} onRetry={reloadOrders} />;
-  if (!orders) return <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>;
-  if (orders.length === 0) return <p className="py-10 text-center text-sm text-muted-foreground">{t('member.noTransactions')}</p>;
+  const title = <h1 className="py-6 font-display text-3xl font-bold">{t('member.nav.transactions')}</h1>;
+  if (ordersError) return <>{title}<ErrorState message={ordersError} onRetry={reloadOrders} /></>;
+  if (!orders) return <>{title}<div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div></>;
+  if (orders.length === 0) return <>{title}<p className="py-10 text-center text-sm text-muted-foreground">{t('member.noTransactions')}</p></>;
 
   return (
     <div>
+      {title}
       {orders.length >= FILTERS_FROM && (
         <div className="mb-4 space-y-3">
           <div className="flex flex-wrap gap-2" role="group" aria-label={t('member.status')}>
@@ -163,7 +165,7 @@ function OrderDetailDialog({ order, onClose }: { order: MemberOrder | null; onCl
         {order && (
           <>
             <div className="border-b p-5">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3 pr-8">
                 <DialogTitle className="font-display text-lg">{t('member.receipt')}</DialogTitle>
                 <StatusBadge status={order.status} />
               </div>

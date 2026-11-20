@@ -56,6 +56,7 @@ export default function MemberAccountPage() {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-xl">
+      <h1 className="py-6 font-display text-3xl font-bold">{t('member.nav.account')}</h1>
       <section className="space-y-4">
         <h2 className="font-display text-lg font-bold">{t('member.personal')}</h2>
         <div className="space-y-1.5">
