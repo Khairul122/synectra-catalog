@@ -112,8 +112,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
             <p className="mt-0.5 text-sm text-muted-foreground">{me.email}</p>
           </div>
 
-          <nav aria-label={t('member.menu')} className="-mx-4 overflow-x-auto border-b px-4">
-            <ul className="flex gap-6">
+          <nav aria-label={t('member.menu')} className="border-b">
+            <ul className="flex gap-5 sm:gap-6">
               {TABS.map(({ key, href }) => (
                 <li key={href}>
                   <Link
