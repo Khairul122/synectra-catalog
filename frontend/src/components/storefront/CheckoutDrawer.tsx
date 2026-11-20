@@ -66,6 +66,8 @@ export function CheckoutDrawer({ product, isOpen, onClose }: CheckoutDrawerProps
       toast.success(t('checkout.created'), { description: t('checkout.redirecting') });
       window.location.href = res.paymentUrl || `/order/${res.invoiceId}`;
     } catch (err: unknown) {
+      // A failed attempt leaves an order without a payment URL; retrying with the same key would replay that 409.
+      idempotencyRef.current = null;
       setLoading(false);
       const message = err instanceof Error ? err.message : t('checkout.failedGeneric');
       setErrorMsg(message);

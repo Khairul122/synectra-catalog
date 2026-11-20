@@ -125,7 +125,9 @@ export class DokuAdapter {
     });
 
     if (!response.ok) {
-      throw new Error(`DOKU checkout failed with status ${response.status}`);
+      // DOKU's error body (e.g. invalid_client_id) is the only clue to the cause; it is logged, never shown to buyers.
+      const detail = (await response.text().catch(() => '')).slice(0, 300);
+      throw new Error(`DOKU checkout failed with status ${response.status}: ${detail}`);
     }
 
     const json = (await response.json()) as {
