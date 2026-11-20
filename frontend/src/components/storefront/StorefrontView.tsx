@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MessageCircle, Search, Sparkles } from 'lucide-react';
+import NextLink from 'next/link';
+import { Home, LogIn, Menu, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ErrorState } from '@/components/shared/feedback';
 import { ProfileHeader } from './ProfileHeader';
 import { LinkBlockList } from './LinkBlockList';
@@ -42,26 +44,27 @@ export function StorefrontView({ profile, links, products, loading = false, fail
 
   const storeName = profile?.business_name || profile?.display_name || 'Synectra Digital';
 
-  const focusSearch = () => {
-    const input = document.getElementById('store-search');
-    input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    input?.focus({ preventScroll: true });
-  };
 
   return (
     <div className="relative mx-auto flex min-h-full w-full max-w-[600px] flex-col bg-background/60 shadow-sm">
       <StoreBar
         title={storeName}
         left={
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={focusSearch}
-            aria-label={t('store.search')}
-            className="rounded-full text-white hover:bg-white/10 hover:text-white"
-          >
-            <Search className="h-5 w-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label={t('store.menu')} className="rounded-full text-white hover:bg-white/10 hover:text-white">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              <DropdownMenuItem asChild>
+                <NextLink href="/"><Home className="h-4 w-4" /> {t('store.menuHome')}</NextLink>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <NextLink href="/login"><LogIn className="h-4 w-4" /> {t('store.menuLogin')}</NextLink>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 

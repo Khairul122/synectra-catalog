@@ -24,10 +24,16 @@ export function removeStoredToken(): void {
   }
 }
 
-export async function adminSignIn(email: string, password: string): Promise<string> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+/** Emails a one-time code. Never creates users: only existing accounts (the store owner) can sign in. */
+export async function sendAdminOtp(email: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  if (error) throw new Error(error.message);
+}
+
+export async function verifyAdminOtp(email: string, token: string): Promise<string> {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
   if (error || !data?.session?.access_token) {
-    throw new Error('Email atau kata sandi tidak valid.');
+    throw new Error('Kode salah atau sudah kedaluwarsa.');
   }
   setStoredToken(data.session.access_token);
   return data.session.access_token;
