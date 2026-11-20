@@ -16,3 +16,6 @@ lint-output.txt
 lint-json-output.txt
 graphify-out/
 supabase/.temp/
+
+.vercel
+.env*
