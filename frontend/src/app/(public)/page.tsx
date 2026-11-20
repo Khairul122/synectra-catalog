@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Search, Sparkles, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { api } from '@/services/api';
 import { ProfileHeader } from '@/components/storefront/ProfileHeader';
 import { LinkBlockList } from '@/components/storefront/LinkBlockList';
@@ -22,6 +23,7 @@ export default function StorefrontPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -60,49 +62,84 @@ export default function StorefrontPage() {
   useEffect(() => applyBrandTheme(profile?.theme_color), [profile?.theme_color]);
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden pb-12">
-      {/* Soft brand-tinted backdrop, like a link-in-bio page */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-primary/[0.06]" />
-      </div>
+    <main className="relative min-h-screen overflow-x-hidden bg-background">
+      <Squiggles />
 
-      <div className="mx-auto w-full max-w-[560px] px-4">
-        <div className="flex justify-end py-4">
-          <Preferences />
-        </div>
-
-        <ProfileHeader profile={profile} loading={loading && !profile} />
-        <LinkBlockList links={links} />
-
-        <section className="mt-10 space-y-4">
-          <div className="sticky top-0 z-30 -mx-4 space-y-3 bg-background/75 px-4 py-3 backdrop-blur-xl">
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold">{t('store.catalogTitle')}</h2>
-                <p className="text-xs text-muted-foreground">{t('store.catalogSub')}</p>
-              </div>
-              {!loading && products.length > 0 && (
-                <span className="rounded-full bg-primary/10 px-2.5 py-1 font-mono text-xs font-semibold text-primary">{filteredProducts.length}</span>
-              )}
-            </motion.div>
-            <CategoryFilterBar categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} search={search} onSearch={setSearch} />
+      <div className="relative mx-auto min-h-screen w-full max-w-[600px] bg-background/60 pb-24 shadow-sm">
+        {/* Lynk.id-style app bar */}
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between bg-zinc-800 px-2 text-white">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSearchOpen((open) => !open)}
+            aria-label={t('store.toggleSearch')}
+            aria-expanded={searchOpen}
+            className="rounded-full text-white hover:bg-white/10 hover:text-white"
+          >
+            {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+          </Button>
+          <span className="font-display text-lg font-bold">{t('store.home')}</span>
+          {/* .dark scopes the dark tokens so the controls read well on the dark bar in both themes */}
+          <div className="dark">
+            <Preferences />
           </div>
+        </header>
 
-          {failed ? (
-            <ErrorState message={t('store.loadError')} onRetry={fetchCatalog} retrying={loading} />
-          ) : (
-            <ProductGrid products={filteredProducts} loading={loading} filtered={Boolean(search || selectedCategory)} onBuy={setSelectedProduct} />
+        <AnimatePresence initial={false}>
+          {searchOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="sticky top-14 z-30 overflow-hidden border-b bg-background/90 backdrop-blur-xl"
+            >
+              <div className="p-3">
+                <CategoryFilterBar categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} search={search} onSearch={setSearch} />
+              </div>
+            </motion.div>
           )}
-        </section>
+        </AnimatePresence>
 
-        <footer className="mt-12 flex justify-center">
-          <span className="glass inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-primary" /> {t('store.footer')}
-          </span>
-        </footer>
+        <div className="px-4 pt-8">
+          <ProfileHeader profile={profile} loading={loading && !profile} />
+          <LinkBlockList links={links} />
+
+          <section aria-label={t('store.catalogTitle')} className="mt-8">
+            {failed ? (
+              <ErrorState message={t('store.loadError')} onRetry={fetchCatalog} retrying={loading} />
+            ) : (
+              <ProductGrid products={filteredProducts} loading={loading} filtered={Boolean(search || selectedCategory)} onBuy={setSelectedProduct} />
+            )}
+          </section>
+        </div>
       </div>
+
+      <footer className="fixed inset-x-0 bottom-0 z-40 mx-auto flex h-12 w-full max-w-[600px] items-center justify-center gap-1.5 border-t bg-card text-sm font-semibold text-muted-foreground">
+        <Sparkles className="h-4 w-4 text-primary" /> {t('store.footer')}
+      </footer>
 
       <CheckoutDrawer product={selectedProduct} isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} />
     </main>
+  );
+}
+
+/** Decorative solid-stroke squiggles in the page margins (desktop only), like Lynk.id themes. */
+function Squiggles() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 hidden lg:block">
+      <svg className="absolute -left-6 top-24 h-64 w-40 text-primary/70" viewBox="0 0 160 260" fill="none">
+        <path d="M120 10c20 60-90 70-60 130s-70 60-50 110" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+      </svg>
+      <svg className="absolute -right-10 bottom-0 h-72 w-56 text-orange-500/80" viewBox="0 0 220 280" fill="none">
+        <path d="M20 270c0-120 60-200 180-200" stroke="currentColor" strokeWidth="22" strokeLinecap="round" />
+      </svg>
+      <svg className="absolute bottom-10 left-[12%] h-16 w-16 text-amber-300/80" viewBox="0 0 64 64">
+        <path d="M32 0l6 26 26 6-26 6-6 26-6-26L0 32l26-6z" fill="currentColor" />
+      </svg>
+      <svg className="absolute right-[14%] top-28 h-10 w-10 text-primary/60" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="6" fill="none" />
+      </svg>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import { BadgeCheck, Instagram, Music2, Youtube } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import type { Profile } from '@/types';
 
 interface ProfileHeaderProps {
@@ -28,28 +29,26 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
 
   return (
     <header className="text-center">
+      {profile.cover_banner_url && (
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="relative aspect-[1200/628] w-full overflow-hidden rounded-3xl shadow-xl shadow-primary/10"
       >
-        {profile.cover_banner_url ? (
-          <Image src={profile.cover_banner_url} alt="" fill priority sizes="560px" className="object-cover" />
-        ) : (
-          <div className="absolute inset-0 bg-primary" />
-        )}
+        <Image src={profile.cover_banner_url} alt="" fill priority sizes="600px" className="object-cover" />
       </motion.div>
+      )}
 
       <motion.div
         initial={{ scale: 0, rotate: -30 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: 'spring', stiffness: 220, damping: 16, delay: 0.2 }}
-        className="relative mx-auto -mt-14 h-28 w-28"
+        className={cn('relative mx-auto h-24 w-24', profile.cover_banner_url && '-mt-12')}
       >
         <div className="relative h-full w-full overflow-hidden rounded-full border-4 border-background bg-card ring-2 ring-primary/40">
           {profile.avatar_url ? (
-            <Image src={profile.avatar_url} alt={displayName} fill sizes="112px" className="object-cover" />
+            <Image src={profile.avatar_url} alt={displayName} fill sizes="96px" className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-primary/15 font-display text-4xl font-bold text-primary">
               {displayName.charAt(0).toUpperCase()}
@@ -100,8 +99,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
 function ProfileSkeleton() {
   return (
     <div className="flex flex-col items-center gap-3">
-      <Skeleton className="aspect-[1200/628] w-full rounded-3xl" />
-      <Skeleton className="-mt-14 h-28 w-28 rounded-full border-4 border-background" />
+      <Skeleton className="h-24 w-24 rounded-full" />
       <Skeleton className="h-7 w-48" />
       <Skeleton className="h-4 w-64" />
       <div className="flex gap-2">

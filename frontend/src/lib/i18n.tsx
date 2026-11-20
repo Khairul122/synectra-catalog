@@ -39,6 +39,9 @@ const id = {
   'store.defaultDesc': 'Produk digital siap unduh setelah pembayaran terverifikasi.',
   'store.instant': 'Akses instan',
   'store.buy': 'Beli',
+  'store.buyNow': 'Beli Sekarang',
+  'store.home': 'Beranda',
+  'store.toggleSearch': 'Cari dan filter produk',
   'store.buyLabel': 'Beli {title}',
   'store.footer': 'Dibuat dengan Synectra',
 
@@ -315,6 +318,9 @@ const en: Record<MessageKey, string> = {
   'store.defaultDesc': 'Digital product ready to download once payment is verified.',
   'store.instant': 'Instant access',
   'store.buy': 'Buy',
+  'store.buyNow': 'Buy now',
+  'store.home': 'Home',
+  'store.toggleSearch': 'Search and filter products',
   'store.buyLabel': 'Buy {title}',
   'store.footer': 'Made with Synectra',
 
