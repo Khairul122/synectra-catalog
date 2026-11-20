@@ -125,10 +125,10 @@ export default function AdminLoginPage() {
                     autoFocus
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    pattern="\d{6}"
-                    maxLength={6}
+                    pattern="\d{6,10}"
+                    maxLength={10}
                     value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     placeholder="000000"
                     className="pl-10 font-mono text-lg tracking-[0.5em]"
                   />
@@ -136,7 +136,7 @@ export default function AdminLoginPage() {
               </div>
             )}
 
-            <Button type="submit" variant="brand" size="xl" className="mt-2 w-full" disabled={loading || (step === 'code' && code.length !== 6)}>
+            <Button type="submit" variant="brand" size="xl" className="mt-2 w-full" disabled={loading || (step === 'code' && code.length < 6)}>
               {loading ? <Loader2 className="animate-spin" /> : <>{step === 'email' ? t('login.sendCode') : t('login.submit')} <ArrowRight /></>}
             </Button>
 
