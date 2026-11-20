@@ -89,6 +89,11 @@ export class DokuAdapter {
       payment: {
         payment_due_date: 60, // 60 minutes
       },
+      // Per-request webhook target, so each environment (staging/production) gets its own notifications
+      // without depending on the dashboard-wide Notification URL.
+      additional_info: {
+        override_notification_url: `${env.APP_URL}/api/webhooks/doku`,
+      },
       customer: {
         name: params.buyerName,
         email: params.buyerEmail,
