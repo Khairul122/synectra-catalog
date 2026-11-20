@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '@/infrastructure/supabase.admin';
-import type { Product } from '@/types';
+import { supabaseAdmin } from '../infrastructure/supabase.admin';
+import type { Product } from '../types';
 
 export class ProductRepository {
   async getActiveProducts(category?: string): Promise<Product[]> {

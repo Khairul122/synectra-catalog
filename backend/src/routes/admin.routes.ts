@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { authMiddleware } from '@/middlewares/auth.middleware';
-import { validateBody } from '@/middlewares/validate.middleware';
-import { adminService } from '@/services/admin.service';
+import { authMiddleware } from '../middlewares/auth.middleware';
+import { validateBody } from '../middlewares/validate.middleware';
+import { adminService } from '../services/admin.service';
 import {
   createProductDtoSchema,
   updateProductDtoSchema,
@@ -16,10 +16,10 @@ import {
   type UpdateLinkDto,
   type ReorderLinksDto,
   type UpdateProfileDto,
-} from '@/dtos';
-import type { OrderStatus } from '@/types';
-import { successResponse, errorResponse } from '@/utils/response';
-import type { AppEnv } from '@/types';
+} from '../dtos';
+import type { OrderStatus } from '../types';
+import { successResponse, errorResponse } from '../utils/response';
+import type { AppEnv } from '../types';
 
 export const adminRoutes = new Hono<AppEnv>();
 

@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { dokuWebhookMiddleware } from '@/middlewares/doku.middleware';
-import { fulfillmentService } from '@/services/fulfillment.service';
-import { dokuNotificationDtoSchema } from '@/dtos';
-import { successResponse, errorResponse } from '@/utils/response';
-import type { AppEnv } from '@/types';
+import { dokuWebhookMiddleware } from '../middlewares/doku.middleware';
+import { fulfillmentService } from '../services/fulfillment.service';
+import { dokuNotificationDtoSchema } from '../dtos';
+import { successResponse, errorResponse } from '../utils/response';
+import type { AppEnv } from '../types';
 
 export const webhookRoutes = new Hono<AppEnv>();
 

@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { env } from '@/config/env';
+import { env } from '../config/env';
 
 export interface CreateDokuPaymentParams {
   invoiceId: string;

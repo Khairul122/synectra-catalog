@@ -1,7 +1,7 @@
-import { profileRepository } from '@/repositories/profile.repository';
-import { linkRepository } from '@/repositories/link.repository';
-import { productRepository } from '@/repositories/product.repository';
-import type { CatalogData } from '@/types';
+import { profileRepository } from '../repositories/profile.repository';
+import { linkRepository } from '../repositories/link.repository';
+import { productRepository } from '../repositories/product.repository';
+import type { CatalogData } from '../types';
 
 export class CatalogService {
   async getCatalog(category?: string): Promise<CatalogData> {

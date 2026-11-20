@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import type { ZodSchema } from 'zod';
-import type { AppEnv } from '@/types';
+import type { AppEnv } from '../types';
 
 export const validateBody = <T>(schema: ZodSchema<T>): MiddlewareHandler<AppEnv> => {
   return async (c, next) => {

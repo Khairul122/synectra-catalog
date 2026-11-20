@@ -1,8 +1,8 @@
-import { productRepository } from '@/repositories/product.repository';
-import { linkRepository } from '@/repositories/link.repository';
-import { profileRepository } from '@/repositories/profile.repository';
-import { orderRepository, type OrderAnalyticsSummary } from '@/repositories/order.repository';
-import { storageRepository } from '@/repositories/storage.repository';
+import { productRepository } from '../repositories/product.repository';
+import { linkRepository } from '../repositories/link.repository';
+import { profileRepository } from '../repositories/profile.repository';
+import { orderRepository, type OrderAnalyticsSummary } from '../repositories/order.repository';
+import { storageRepository } from '../repositories/storage.repository';
 import type {
   CreateProductDto,
   UpdateProductDto,
@@ -10,8 +10,8 @@ import type {
   UpdateLinkDto,
   ReorderLinksDto,
   UpdateProfileDto,
-} from '@/dtos';
-import type { Product, Link, Profile, Order, OrderStatus } from '@/types';
+} from '../dtos';
+import type { Product, Link, Profile, Order, OrderStatus } from '../types';
 
 export class AdminService {
   // --- Products ---

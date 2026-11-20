@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { errorResponse } from '@/utils/response';
+import { errorResponse } from '../utils/response';
 
 const DATABASE_UNREACHABLE = /fetch failed|TimeoutError|ECONNREFUSED|ENOTFOUND/;
 

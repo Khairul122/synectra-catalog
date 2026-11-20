@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { productRepository } from '@/repositories/product.repository';
-import { orderRepository, DuplicateOrderError } from '@/repositories/order.repository';
-import { dokuAdapter } from '@/infrastructure/doku.adapter';
-import type { CheckoutDto } from '@/dtos';
-import type { Order } from '@/types';
+import { productRepository } from '../repositories/product.repository';
+import { orderRepository, DuplicateOrderError } from '../repositories/order.repository';
+import { dokuAdapter } from '../infrastructure/doku.adapter';
+import type { CheckoutDto } from '../dtos';
+import type { Order } from '../types';
 
 export interface CheckoutResult {
   invoiceId: string;

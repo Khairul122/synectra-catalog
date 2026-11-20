@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '@/infrastructure/supabase.admin';
-import type { Order, OrderStatus } from '@/types';
+import { supabaseAdmin } from '../infrastructure/supabase.admin';
+import type { Order, OrderStatus } from '../types';
 
 type OrderInsert = Omit<
   Order,

@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
-import { errorResponse } from '@/utils/response';
-import type { AppEnv } from '@/types';
+import { errorResponse } from '../utils/response';
+import type { AppEnv } from '../types';
 
 // ponytail: in-memory fixed window, per serverless instance. Upgrade to Upstash/Redis
 // if abuse spreads across instances or limits must be global.

@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from 'hono';
-import { supabaseAdmin } from '@/infrastructure/supabase.admin';
-import { env } from '@/config/env';
-import { profileRepository } from '@/repositories/profile.repository';
-import { errorResponse } from '@/utils/response';
-import type { AppEnv } from '@/types';
+import { supabaseAdmin } from '../infrastructure/supabase.admin';
+import { env } from '../config/env';
+import { profileRepository } from '../repositories/profile.repository';
+import { errorResponse } from '../utils/response';
+import type { AppEnv } from '../types';
 
 export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const authHeader = c.req.header('Authorization');

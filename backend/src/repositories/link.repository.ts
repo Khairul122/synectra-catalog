@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '@/infrastructure/supabase.admin';
-import type { Link } from '@/types';
+import { supabaseAdmin } from '../infrastructure/supabase.admin';
+import type { Link } from '../types';
 
 export class LinkRepository {
   async getActiveLinks(): Promise<Link[]> {

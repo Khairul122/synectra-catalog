@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { app } from '@/app';
+import { app } from './app';
 
 async function readBody(request: IncomingMessage): Promise<Uint8Array | undefined> {
   if (request.method === 'GET' || request.method === 'HEAD') return undefined;

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { apiRouter } from '@/routes';
-import { errorHandler } from '@/middlewares/error.middleware';
-import type { AppEnv } from '@/types';
+import { apiRouter } from './routes';
+import { errorHandler } from './middlewares/error.middleware';
+import type { AppEnv } from './types';
 
 export const app = new Hono<AppEnv>().basePath('/api');
 

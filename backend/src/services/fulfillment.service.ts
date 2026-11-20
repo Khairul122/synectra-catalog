@@ -1,8 +1,8 @@
-import { orderRepository } from '@/repositories/order.repository';
-import { storageRepository } from '@/repositories/storage.repository';
-import { resendAdapter } from '@/infrastructure/resend.adapter';
-import type { DokuNotificationDto } from '@/dtos';
-import type { OrderStatus } from '@/types';
+import { orderRepository } from '../repositories/order.repository';
+import { storageRepository } from '../repositories/storage.repository';
+import { resendAdapter } from '../infrastructure/resend.adapter';
+import type { DokuNotificationDto } from '../dtos';
+import type { OrderStatus } from '../types';
 
 const SIGNED_URL_EXPIRES_IN = 86400;
 

@@ -1,13 +1,13 @@
 import { Hono } from 'hono';
-import { catalogService } from '@/services/catalog.service';
-import { checkoutService, CheckoutError } from '@/services/checkout.service';
-import { rateLimit } from '@/middlewares/rate-limit.middleware';
-import type { Order } from '@/types';
-import { fulfillmentService } from '@/services/fulfillment.service';
-import { validateBody } from '@/middlewares/validate.middleware';
-import { checkoutDtoSchema, type CheckoutDto } from '@/dtos';
-import { successResponse, errorResponse } from '@/utils/response';
-import type { AppEnv } from '@/types';
+import { catalogService } from '../services/catalog.service';
+import { checkoutService, CheckoutError } from '../services/checkout.service';
+import { rateLimit } from '../middlewares/rate-limit.middleware';
+import type { Order } from '../types';
+import { fulfillmentService } from '../services/fulfillment.service';
+import { validateBody } from '../middlewares/validate.middleware';
+import { checkoutDtoSchema, type CheckoutDto } from '../dtos';
+import { successResponse, errorResponse } from '../utils/response';
+import type { AppEnv } from '../types';
 
 export const publicRoutes = new Hono<AppEnv>();
 

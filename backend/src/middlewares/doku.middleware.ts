@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
-import { dokuAdapter } from '@/infrastructure/doku.adapter';
-import { errorResponse } from '@/utils/response';
-import type { AppEnv } from '@/types';
+import { dokuAdapter } from '../infrastructure/doku.adapter';
+import { errorResponse } from '../utils/response';
+import type { AppEnv } from '../types';
 
 export const dokuWebhookMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const clientId = c.req.header('Client-Id');

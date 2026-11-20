@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { publicRoutes } from './public.routes';
 import { webhookRoutes } from './webhook.routes';
 import { adminRoutes } from './admin.routes';
-import type { AppEnv } from '@/types';
+import type { AppEnv } from '../types';
 
 export const apiRouter = new Hono<AppEnv>();
 

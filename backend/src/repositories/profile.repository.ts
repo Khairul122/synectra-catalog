@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '@/infrastructure/supabase.admin';
-import type { Profile } from '@/types';
+import { supabaseAdmin } from '../infrastructure/supabase.admin';
+import type { Profile } from '../types';
 
 export class ProfileRepository {
   async isOwner(userId: string): Promise<boolean> {

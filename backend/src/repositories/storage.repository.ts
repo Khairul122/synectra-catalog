@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '@/infrastructure/supabase.admin';
-import { env } from '@/config/env';
+import { supabaseAdmin } from '../infrastructure/supabase.admin';
+import { env } from '../config/env';
 
 export class StorageRepository {
   async createSignedUrl(
