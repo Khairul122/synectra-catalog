@@ -39,6 +39,16 @@ export async function verifyLoginOtp(email: string, token: string): Promise<stri
   return data.session.access_token;
 }
 
+/** Password sign-in for the store owner; the account is created in Supabase Authentication, never here. */
+export async function signInWithPassword(email: string, password: string): Promise<string> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data?.session?.access_token) {
+    throw new Error('Email atau password salah.');
+  }
+  setStoredToken(data.session.access_token);
+  return data.session.access_token;
+}
+
 export async function adminSignOut(): Promise<void> {
   removeStoredToken();
   try {

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Loader2, Store } from 'lucide-react';
 import { notify } from '@/components/shared/message-dialog';
-import { sendLoginOtp, verifyLoginOtp } from '@/services/supabase';
+import { sendLoginOtp, signInWithPassword, verifyLoginOtp } from '@/services/supabase';
 import { api } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,9 @@ export default function LoginPage() {
   const [store, setStore] = useState<Profile | null>(null);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [password, setPassword] = useState('');
+  // Members sign in with an emailed code; the store owner can use the password set in Supabase.
+  const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
@@ -68,19 +70,18 @@ export default function LoginPage() {
     }
   };
 
-  const verifyCode = async () => {
+  const signIn = async (getToken: () => Promise<string>, onFail: () => void) => {
     setError(null);
     setLoading(true);
     try {
-      const token = await verifyLoginOtp(email.trim(), code);
+      const token = await getToken();
       notify.success(t('login.welcome'));
       // Store owner goes to the studio; everyone else to their purchases.
       const me = await api.memberMe(token).catch(() => null);
       router.push(me?.isAdmin ? '/admin' : '/member');
     } catch (err) {
-      setCode('');
+      onFail();
       fail(err, t('login.failed'));
-      codeRef.current?.focus();
     } finally {
       setLoading(false);
     }
@@ -88,7 +89,15 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    void (step === 'email' ? sendCode() : verifyCode());
+    if (step === 'email') void sendCode();
+    else if (step === 'code') void signIn(() => verifyLoginOtp(email.trim(), code), () => { setCode(''); codeRef.current?.focus(); });
+    else void signIn(() => signInWithPassword(email.trim(), password), () => setPassword(''));
+  };
+
+  const backToEmail = () => {
+    setStep('email');
+    setPassword('');
+    setError(null);
   };
 
   const storeName = store?.business_name || store?.display_name || 'Synectra';
@@ -128,9 +137,11 @@ export default function LoginPage() {
             >
               <div>
                 <p className="text-sm font-medium text-primary">{t('login.stepOf', { n: step === 'email' ? 1 : 2 })}</p>
-                <h1 className="mt-1 font-display text-2xl font-bold">{step === 'email' ? t('login.title') : t('login.codeTitle')}</h1>
+                <h1 className="mt-1 font-display text-2xl font-bold">
+                  {step === 'email' ? t('login.title') : step === 'code' ? t('login.codeTitle') : t('login.passwordTitle')}
+                </h1>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {step === 'email' ? t('login.sub') : t('login.codeSub', { email: email.trim() })}
+                  {step === 'email' ? t('login.sub') : step === 'code' ? t('login.codeSub', { email: email.trim() }) : t('login.passwordSub', { email: email.trim() })}
                 </p>
               </div>
 
@@ -152,6 +163,11 @@ export default function LoginPage() {
                 <div className="space-y-1.5">
                   <Label htmlFor="email">{t('login.email')}</Label>
                   <Input id="email" type="email" required autoFocus autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" className="h-12" />
+                </div>
+              ) : step === 'password' ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">{t('login.password')}</Label>
+                  <Input id="password" type="password" required autoFocus autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12" />
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -206,9 +222,15 @@ export default function LoginPage() {
                 {loading ? <Loader2 className="animate-spin" /> : <>{step === 'email' ? t('login.sendCode') : t('login.submit')} <ArrowRight /></>}
               </Button>
 
+              {step === 'password' && (
+                <button type="button" onClick={backToEmail} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4" /> {t('login.changeEmail')}
+                </button>
+              )}
+
               {step === 'code' && (
                 <div className="flex items-center justify-between text-sm">
-                  <button type="button" onClick={() => { setStep('email'); setError(null); }} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                  <button type="button" onClick={backToEmail} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
                     <ArrowLeft className="h-4 w-4" /> {t('login.changeEmail')}
                   </button>
                   <button type="button" onClick={() => void sendCode()} disabled={loading || cooldown > 0} className="font-medium text-primary tabular-nums hover:underline disabled:text-muted-foreground disabled:no-underline">
@@ -217,7 +239,24 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {step === 'email' && <p className="text-xs text-muted-foreground">{t('login.newHint')}</p>}
+              {step === 'email' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">{t('login.newHint')}</p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      // Reuse the email field's own validation before switching.
+                      const input = e.currentTarget.form?.elements.namedItem('email') as HTMLInputElement | null;
+                      if (input && !input.reportValidity()) return;
+                      setError(null);
+                      setStep('password');
+                    }}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    {t('login.usePassword')}
+                  </button>
+                </div>
+              )}
             </motion.form>
           </AnimatePresence>
         </motion.div>

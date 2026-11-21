@@ -260,6 +260,10 @@ const id = {
   'login.sendFailed': 'Gagal mengirim kode',
   'login.resend': 'Kirim ulang',
   'login.changeEmail': 'Ganti email',
+  'login.usePassword': 'Admin? Masuk dengan password',
+  'login.passwordTitle': 'Masuk sebagai admin',
+  'login.passwordSub': 'Masukkan password untuk {email}.',
+  'login.password': 'Password',
 
   // admin shell
   'admin.verifying': 'Memverifikasi akses studio...',
@@ -713,6 +717,10 @@ const en: Record<MessageKey, string> = {
   'login.sendFailed': 'Could not send the code',
   'login.resend': 'Resend',
   'login.changeEmail': 'Change email',
+  'login.usePassword': 'Admin? Sign in with password',
+  'login.passwordTitle': 'Sign in as admin',
+  'login.passwordSub': 'Enter the password for {email}.',
+  'login.password': 'Password',
 
   'admin.verifying': 'Verifying studio access...',
   'admin.dashboard': 'Creator dashboard',
