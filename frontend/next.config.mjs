@@ -3,7 +3,9 @@ import process from 'node:process';
 const nextConfig = {
   reactStrictMode: true,
   // Product thumbnails, avatars and banners live in Supabase Storage.
-  images: { remotePatterns: [{ protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' }] },
+  images: { remotePatterns: [{ protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
+    // Covers for the store's own products, shipped in public/products.
+    { protocol: 'https', hostname: 'synectrajasadigital.me', pathname: '/products/**' }] },
   // Dev only: proxy /api to the local Hono server. On Vercel, vercel.json routes /api to the function.
   async rewrites() {
     if (process.env.NODE_ENV === 'production') return [];
