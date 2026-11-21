@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { memberDisplayName, useMember } from '@/context/MemberContext';
@@ -40,6 +40,12 @@ export default function MemberAccountPage() {
   };
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
+  const [touched, setTouched] = useState(false);
+
+  // Orders can arrive after this page mounts; refill the prefilled name/phone until the member types.
+  useEffect(() => {
+    if (!touched) setForm(initial());
+  }, [orders, me.account]);
   // What is actually stored. Prefilled values from past orders count as unsaved until the member saves them.
   const baseline: Form = {
     name: me.account?.name ?? '',
@@ -52,13 +58,17 @@ export default function MemberAccountPage() {
     zip_code: me.account?.zip_code ?? '',
   };
   const dirty = (Object.keys(form) as (keyof Member)[]).some((k) => form[k] !== baseline[k]);
-  const set = (key: keyof Member) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const set = (key: keyof Member) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setTouched(true);
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       setAccount(await api.memberUpdateAccount(token, form));
+      setTouched(false);
       notify.success(t('member.saved'));
     } catch (err) {
       notify.error(t('member.saveFailed'), { description: err instanceof Error ? err.message : undefined });
@@ -68,9 +78,10 @@ export default function MemberAccountPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-xl">
+    <form onSubmit={handleSubmit}>
       <h1 className="py-6 font-display text-3xl font-bold">{t('member.nav.account')}</h1>
-      <section className="space-y-4">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <section className="space-y-4 rounded-2xl border bg-card p-5 sm:p-6">
         <h2 className="font-display text-lg font-bold">{t('member.personal')}</h2>
         <div className="space-y-1.5">
           <Label htmlFor="m-name">{t('member.name')}</Label>
@@ -87,7 +98,7 @@ export default function MemberAccountPage() {
         </div>
       </section>
 
-      <section className="mt-8 space-y-4 border-t pt-8">
+      <section className="space-y-4 rounded-2xl border bg-card p-5 sm:p-6">
         <div>
           <h2 className="font-display text-lg font-bold">{t('member.addressTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('member.addressOptional')}</p>
@@ -112,6 +123,7 @@ export default function MemberAccountPage() {
           ))}
         </div>
       </section>
+      </div>
 
       {/* Save bar slides in only when something changed, so the form never asks to save nothing. */}
       <AnimatePresence>
@@ -124,7 +136,7 @@ export default function MemberAccountPage() {
           >
             <span className="text-sm text-muted-foreground">{t('member.unsaved')}</span>
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => setForm(initial())} disabled={saving}>{t('common.cancel')}</Button>
+              <Button type="button" variant="ghost" onClick={() => { setForm(initial()); setTouched(false); }} disabled={saving}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="animate-spin" />} {t('member.saveChanges')}
               </Button>
