@@ -77,11 +77,11 @@ export default function ProductPage() {
 
   return (
     <Shell>
-      <div className="relative aspect-square w-full overflow-hidden bg-muted">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
         {loading ? (
           <Skeleton className="h-full w-full rounded-none" />
         ) : product?.thumbnail_url && !imageError ? (
-          <Image src={product.thumbnail_url} alt={product.title} fill priority sizes="600px" className="object-cover" onError={() => setImageError(true)} />
+          <Image src={product.thumbnail_url} alt={product.title} fill priority sizes="600px" className="object-contain"onError={() => setImageError(true)} />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-primary/10">
             <Sparkles className="h-16 w-16 text-primary/50" />
