@@ -103,18 +103,19 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* Store side: who you are signing in to and what the member area gives you. */}
-      <aside className="relative overflow-hidden bg-zinc-900 text-white">
+      <aside className="relative min-h-[220px] overflow-hidden bg-zinc-900 text-white">
         {store?.cover_banner_url && (
           <motion.img
             src={store.cover_banner_url}
             alt=""
             initial={{ scale: 1.08, opacity: 0 }}
-            animate={{ scale: 1, opacity: 0.45 }}
+            animate={{ scale: 1, opacity: 0.7 }}
             transition={{ duration: 1.2, ease: 'easeOut' }}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-x-0 top-0 w-full"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/30" />
+        {/* The banner shows whole at the top and fades into solid ground, so the store name never sits on banner text. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/20 via-zinc-900 via-60% to-zinc-900 lg:via-45%" />
 
         <div className="relative flex h-full flex-col p-5 sm:p-8 lg:p-12">
           <Link href="/" className="inline-flex w-fit items-center gap-1.5 rounded-md text-sm text-white/75 hover:text-white">
