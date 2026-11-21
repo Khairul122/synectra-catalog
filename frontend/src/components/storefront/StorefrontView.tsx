@@ -61,7 +61,7 @@ export function StorefrontView({ profile, links, products, loading = false, fail
                 <NextLink href="/"><Home className="h-4 w-4" /> {t('store.menuHome')}</NextLink>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <NextLink href="/login"><LogIn className="h-4 w-4" /> {t('store.menuLogin')}</NextLink>
+                <NextLink href="/member/login"><LogIn className="h-4 w-4" /> {t('store.menuLogin')}</NextLink>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

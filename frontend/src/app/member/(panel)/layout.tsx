@@ -36,13 +36,13 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
 
   const signOut = useCallback(async () => {
     await adminSignOut();
-    router.replace('/login');
+    router.replace('/member/login');
   }, [router]);
 
   useEffect(() => {
     const saved = getStoredToken();
     if (!saved) {
-      router.replace('/login');
+      router.replace('/member/login');
       return;
     }
     api

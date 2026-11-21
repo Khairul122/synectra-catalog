@@ -1,0 +1,184 @@
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { notify } from '@/components/shared/message-dialog';
+import { LoginError, LoginShell } from '@/components/shared/login-shell';
+import { sendLoginOtp, verifyLoginOtp } from '@/services/supabase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
+
+// Supabase sends 6-10 digit codes depending on the project's "Email OTP Length".
+const MIN_CODE = 6;
+const MAX_CODE = 10;
+// Supabase rate-limits OTP emails; waiting a minute between sends keeps the member under it.
+const RESEND_AFTER = 60;
+
+/** Buyer sign-in: an emailed one-time code, creating the account on first use. */
+export default function MemberLoginPage() {
+  const router = useRouter();
+  const { t } = useI18n();
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
+  const [cooldown, setCooldown] = useState(0);
+  const codeRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  const fail = (err: unknown, title: string) => {
+    const message = err instanceof Error ? err.message : title;
+    setError(message);
+    notify.error(title, { description: message });
+    setShakeKey((k) => k + 1);
+  };
+
+  const sendCode = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await sendLoginOtp(email.trim());
+      setCode('');
+      setStep('code');
+      setCooldown(RESEND_AFTER);
+      notify.success(t('login.codeSent'), { description: email.trim() });
+    } catch (err) {
+      fail(err, t('login.sendFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await verifyLoginOtp(email.trim(), code);
+      notify.success(t('login.welcome'));
+      router.push('/member');
+    } catch (err) {
+      setCode('');
+      fail(err, t('login.failed'));
+      codeRef.current?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void (step === 'email' ? sendCode() : verifyCode());
+  };
+
+  // One box per digit; a box is added as the member types past six for longer codes.
+  const boxes = Math.max(MIN_CODE, Math.min(MAX_CODE, code.length + (code.length >= MIN_CODE && code.length < MAX_CODE ? 1 : 0)));
+
+  return (
+    <LoginShell shakeKey={shakeKey}>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.form
+          key={step}
+          onSubmit={handleSubmit}
+          initial={{ opacity: 0, x: step === 'code' ? 40 : -40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: step === 'code' ? -40 : 40 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="space-y-6"
+        >
+          <div>
+            <p className="text-sm font-medium text-primary">{t('login.stepOf', { n: step === 'email' ? 1 : 2 })}</p>
+            <h1 className="mt-1 font-display text-2xl font-bold">{step === 'email' ? t('login.title') : t('login.codeTitle')}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {step === 'email' ? t('login.sub') : t('login.codeSub', { email: email.trim() })}
+            </p>
+          </div>
+
+          <LoginError message={error} />
+
+          {step === 'email' ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="email">{t('login.email')}</Label>
+              <Input id="email" type="email" required autoFocus autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" className="h-12" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="otp">{t('login.code')}</Label>
+              {/* One real input (paste, autofill, screen readers) drawn as per-digit boxes. */}
+              <div className="group relative">
+                <input
+                  id="otp"
+                  ref={codeRef}
+                  required
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern={`\\d{${MIN_CODE},${MAX_CODE}}`}
+                  maxLength={MAX_CODE}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, MAX_CODE))}
+                  className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"
+                />
+                <div aria-hidden className="flex gap-2">
+                  {Array.from({ length: boxes }, (_, i) => {
+                    const digit = code[i];
+                    const active = i === Math.min(code.length, boxes - 1);
+                    return (
+                      <motion.div
+                        key={i}
+                        layout
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={cn(
+                          'flex h-14 min-w-0 flex-1 items-center justify-center rounded-xl border-2 bg-card font-mono text-2xl font-bold transition-colors',
+                          digit ? 'border-primary/60' : 'border-input',
+                          active && 'group-focus-within:border-primary group-focus-within:ring-4 group-focus-within:ring-primary/15',
+                        )}
+                      >
+                        <AnimatePresence mode="popLayout">
+                          {digit && (
+                            <motion.span key={digit + i} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }}>
+                              {digit}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <Button type="submit" variant="brand" size="xl" className="w-full" disabled={loading || (step === 'code' && code.length < MIN_CODE)}>
+            {loading ? <Loader2 className="animate-spin" /> : <>{step === 'email' ? t('login.sendCode') : t('login.submit')} <ArrowRight /></>}
+          </Button>
+
+          {step === 'code' ? (
+            <div className="flex items-center justify-between text-sm">
+              <button type="button" onClick={() => { setStep('email'); setError(null); }} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" /> {t('login.changeEmail')}
+              </button>
+              <button type="button" onClick={() => void sendCode()} disabled={loading || cooldown > 0} className="font-medium text-primary tabular-nums hover:underline disabled:text-muted-foreground disabled:no-underline">
+                {cooldown > 0 ? t('login.resendIn', { s: cooldown }) : t('login.resend')}
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('login.newHint')}</p>
+          )}
+        </motion.form>
+      </AnimatePresence>
+    </LoginShell>
+  );
+}

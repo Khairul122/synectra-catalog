@@ -1,265 +1,82 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Loader2, Store } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { notify } from '@/components/shared/message-dialog';
-import { sendLoginOtp, signInWithPassword, verifyLoginOtp } from '@/services/supabase';
+import { LoginError, LoginShell } from '@/components/shared/login-shell';
+import { adminSignOut, signInWithPassword } from '@/services/supabase';
 import { api } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Preferences } from '@/components/shared/theme-toggle';
 import { useI18n } from '@/lib/i18n';
-import { applyBrandTheme, cn } from '@/lib/utils';
-import type { Profile } from '@/types';
 
-// Supabase sends 6-10 digit codes depending on the project's "Email OTP Length".
-const MIN_CODE = 6;
-const MAX_CODE = 10;
-// Supabase rate-limits OTP emails; waiting a minute between sends keeps the member under it.
-const RESEND_AFTER = 60;
-
-export default function LoginPage() {
+/** Store owner sign-in with the email and password set in Supabase Authentication. Buyers use /member/login. */
+export default function AdminLoginPage() {
   const router = useRouter();
   const { t } = useI18n();
-  const [store, setStore] = useState<Profile | null>(null);
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
-  // Members sign in with an emailed code; the store owner can use the password set in Supabase.
-  const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
-  const [cooldown, setCooldown] = useState(0);
-  const codeRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    api.getCatalog().then((c) => setStore(c.profile)).catch(() => {});
-  }, []);
-  useEffect(() => applyBrandTheme(store?.theme_color), [store?.theme_color]);
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [cooldown]);
-
-  const fail = (err: unknown, title: string) => {
-    const message = err instanceof Error ? err.message : title;
-    setError(message);
-    notify.error(title, { description: message });
-    setShakeKey((k) => k + 1);
-  };
-
-  const sendCode = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await sendLoginOtp(email.trim());
-      setCode('');
-      setStep('code');
-      setCooldown(RESEND_AFTER);
-      notify.success(t('login.codeSent'), { description: email.trim() });
-    } catch (err) {
-      fail(err, t('login.sendFailed'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signIn = async (getToken: () => Promise<string>, onFail: () => void) => {
-    setError(null);
-    setLoading(true);
-    try {
-      const token = await getToken();
-      notify.success(t('login.welcome'));
-      // Store owner goes to the studio; everyone else to their purchases.
-      const me = await api.memberMe(token).catch(() => null);
-      router.push(me?.isAdmin ? '/admin' : '/member');
-    } catch (err) {
-      onFail();
-      fail(err, t('login.failed'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step === 'email') void sendCode();
-    else if (step === 'code') void signIn(() => verifyLoginOtp(email.trim(), code), () => { setCode(''); codeRef.current?.focus(); });
-    else void signIn(() => signInWithPassword(email.trim(), password), () => setPassword(''));
-  };
-
-  const backToEmail = () => {
-    setStep('email');
-    setPassword('');
     setError(null);
+    setLoading(true);
+    try {
+      const token = await signInWithPassword(email.trim(), password);
+      const me = await api.memberMe(token).catch(() => null);
+      if (!me?.isAdmin) {
+        await adminSignOut();
+        throw new Error(t('login.notAdmin'));
+      }
+      notify.success(t('login.welcome'));
+      router.push('/admin');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('login.failed');
+      setPassword('');
+      setError(message);
+      notify.error(t('login.failed'), { description: message });
+      setShakeKey((k) => k + 1);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const storeName = store?.business_name || store?.display_name || 'Synectra';
-  // One box per digit; a box is added as the member types past six for longer codes.
-  const boxes = Math.max(MIN_CODE, Math.min(MAX_CODE, code.length + (code.length >= MIN_CODE && code.length < MAX_CODE ? 1 : 0)));
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16">
-      <Link href="/" className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-md py-2 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> {t('login.backToStore')}
-      </Link>
-      <div className="absolute right-4 top-4">
-        <Preferences />
-      </div>
+    <LoginShell shakeKey={shakeKey}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold">{t('login.adminTitle')}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t('login.adminSub')}</p>
+        </div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex flex-col items-center text-center">
-        {store?.avatar_url ? (
-          <img src={store.avatar_url} alt="" className="h-16 w-16 rounded-2xl border object-cover shadow-sm" />
-        ) : (
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <Store className="h-7 w-7" />
-          </span>
-        )}
-        <p className="mt-3 font-display font-semibold">{storeName}</p>
-      </motion.div>
+        <LoginError message={error} />
 
-        <motion.div key={shakeKey} animate={shakeKey ? { x: [0, -10, 10, -6, 6, 0] } : {}} transition={{ duration: 0.45 }} className="w-full max-w-sm rounded-3xl border bg-card p-6 shadow-sm sm:p-8">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.form
-              key={step}
-              onSubmit={handleSubmit}
-              initial={{ opacity: 0, x: step === 'code' ? 40 : -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: step === 'code' ? -40 : 40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="space-y-6"
-            >
-              <div>
-                <p className="text-sm font-medium text-primary">{t('login.stepOf', { n: step === 'email' ? 1 : 2 })}</p>
-                <h1 className="mt-1 font-display text-2xl font-bold">
-                  {step === 'email' ? t('login.title') : step === 'code' ? t('login.codeTitle') : t('login.passwordTitle')}
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {step === 'email' ? t('login.sub') : step === 'code' ? t('login.codeSub', { email: email.trim() }) : t('login.passwordSub', { email: email.trim() })}
-                </p>
-              </div>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="email">{t('login.email')}</Label>
+            <Input id="email" type="email" required autoFocus autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" className="h-12" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="password">{t('login.password')}</Label>
+            <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12" />
+          </div>
+        </div>
 
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    role="alert"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+        <Button type="submit" variant="brand" size="xl" className="w-full" disabled={loading}>
+          {loading ? <Loader2 className="animate-spin" /> : <>{t('login.submit')} <ArrowRight /></>}
+        </Button>
 
-              {step === 'email' ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="email">{t('login.email')}</Label>
-                  <Input id="email" type="email" required autoFocus autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@email.com" className="h-12" />
-                </div>
-              ) : step === 'password' ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="password">{t('login.password')}</Label>
-                  <Input id="password" type="password" required autoFocus autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="otp">{t('login.code')}</Label>
-                  {/* One real input (paste, autofill, screen readers) drawn as per-digit boxes. */}
-                  <div className="group relative">
-                    <input
-                      id="otp"
-                      ref={codeRef}
-                      required
-                      autoFocus
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern={`\\d{${MIN_CODE},${MAX_CODE}}`}
-                      maxLength={MAX_CODE}
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, MAX_CODE))}
-                      className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"
-                    />
-                    <div aria-hidden className="flex gap-2">
-                      {Array.from({ length: boxes }, (_, i) => {
-                        const digit = code[i];
-                        const active = i === Math.min(code.length, boxes - 1);
-                        return (
-                          <motion.div
-                            key={i}
-                            layout
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className={cn(
-                              'flex h-14 min-w-0 flex-1 items-center justify-center rounded-xl border-2 bg-card font-mono text-2xl font-bold transition-colors',
-                              digit ? 'border-primary/60' : 'border-input',
-                              active && 'group-focus-within:border-primary group-focus-within:ring-4 group-focus-within:ring-primary/15',
-                            )}
-                          >
-                            <AnimatePresence mode="popLayout">
-                              {digit && (
-                                <motion.span key={digit + i} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }}>
-                                  {digit}
-                                </motion.span>
-                              )}
-                            </AnimatePresence>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <Button type="submit" variant="brand" size="xl" className="w-full" disabled={loading || (step === 'code' && code.length < MIN_CODE)}>
-                {loading ? <Loader2 className="animate-spin" /> : <>{step === 'email' ? t('login.sendCode') : t('login.submit')} <ArrowRight /></>}
-              </Button>
-
-              {step === 'password' && (
-                <button type="button" onClick={backToEmail} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                  <ArrowLeft className="h-4 w-4" /> {t('login.changeEmail')}
-                </button>
-              )}
-
-              {step === 'code' && (
-                <div className="flex items-center justify-between text-sm">
-                  <button type="button" onClick={backToEmail} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                    <ArrowLeft className="h-4 w-4" /> {t('login.changeEmail')}
-                  </button>
-                  <button type="button" onClick={() => void sendCode()} disabled={loading || cooldown > 0} className="font-medium text-primary tabular-nums hover:underline disabled:text-muted-foreground disabled:no-underline">
-                    {cooldown > 0 ? t('login.resendIn', { s: cooldown }) : t('login.resend')}
-                  </button>
-                </div>
-              )}
-
-              {step === 'email' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">{t('login.newHint')}</p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      // Reuse the email field's own validation before switching.
-                      const input = e.currentTarget.form?.elements.namedItem('email') as HTMLInputElement | null;
-                      if (input && !input.reportValidity()) return;
-                      setError(null);
-                      setStep('password');
-                    }}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
-                    {t('login.usePassword')}
-                  </button>
-                </div>
-              )}
-            </motion.form>
-          </AnimatePresence>
-        </motion.div>
-    </div>
+        <p className="text-sm text-muted-foreground">
+          {t('login.buyerPrompt')}{' '}
+          <Link href="/member/login" className="font-medium text-primary hover:underline">{t('login.buyerLink')}</Link>
+        </p>
+      </form>
+    </LoginShell>
   );
 }
