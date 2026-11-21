@@ -86,6 +86,10 @@ export class ProductRepository {
     const { error } = await supabaseAdmin.from('products').delete().eq('id', id);
 
     if (error) {
+      // 23503 = foreign_key_violation: orders keep their product (ON DELETE RESTRICT) so sales history survives.
+      if (error.code === '23503') {
+        throw new Error('Produk ini sudah punya pesanan, jadi tidak bisa dihapus agar riwayat transaksi tetap utuh. Nonaktifkan saja supaya tidak tampil di toko.');
+      }
       throw new Error(`ProductRepository.deleteProduct failed: ${error.message}`);
     }
   }
