@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import NextLink from 'next/link';
-import { Home, LogIn, Menu, MessageCircle, Sparkles } from 'lucide-react';
+import { Home, LogIn, Menu, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ErrorState } from '@/components/shared/feedback';
@@ -48,7 +48,6 @@ export function StorefrontView({ profile, links, products, loading = false, fail
   return (
     <div className="relative mx-auto flex min-h-full w-full max-w-[600px] flex-col bg-background/60 shadow-sm">
       <StoreBar
-        title={storeName}
         left={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -90,21 +89,23 @@ export function StorefrontView({ profile, links, products, loading = false, fail
         </section>
       </div>
 
-      <footer className="border-t bg-card px-4 py-6 text-center text-xs text-muted-foreground">
+      <footer className="mt-4">
         {profile?.whatsapp_number && (
-          <a
-            href={`https://wa.me/${profile.whatsapp_number}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary"
-          >
-            <MessageCircle className="h-4 w-4" /> {t('store.contact')}
-          </a>
+          <div className="px-4 pb-10">
+            {/* Lynk.id-style block: solid border plus a hard offset shadow that "presses" on hover. */}
+            <a
+              href={`https://wa.me/${profile.whatsapp_number}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-sm border-2 border-primary bg-card px-4 py-5 text-base text-foreground shadow-[6px_6px_0_hsl(var(--primary))] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <MessageCircle className="h-5 w-5 text-primary" /> {t('store.contact')}
+            </a>
+          </div>
         )}
-        <p>{t('store.copyright', { year: new Date().getFullYear(), name: storeName })}</p>
-        <p className="mt-1 inline-flex items-center gap-1">
-          <Sparkles className="h-3 w-3 text-primary" /> {t('store.footer')}
-        </p>
+        <div className="border-t bg-card px-4 py-5 text-center text-sm text-muted-foreground">
+          {t('store.madeWith')} <span className="font-display font-bold text-foreground">{storeName}</span>
+        </div>
       </footer>
     </div>
   );

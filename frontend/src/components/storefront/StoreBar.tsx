@@ -30,11 +30,11 @@ export function CartButton({ className }: { className?: string }) {
 }
 
 /** Lynk.id-style dark app bar: left action, centered title, cart + preferences on the right. */
-export function StoreBar({ left, title }: { left: ReactNode; title: string }) {
+export function StoreBar({ left, title }: { left: ReactNode; title?: string }) {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-1 bg-zinc-800 px-2 text-white">
       <div className="shrink-0">{left}</div>
-      <h1 className="min-w-0 flex-1 truncate text-center font-display text-lg font-bold">{title}</h1>
+      {title ? <h1 className="min-w-0 flex-1 truncate text-center font-display text-lg font-bold">{title}</h1> : <div className="flex-1" />}
       <div className="flex shrink-0 items-center gap-1">
         <CartButton />
         {/* .dark scopes the dark tokens so the controls read well on the dark bar in both themes */}
