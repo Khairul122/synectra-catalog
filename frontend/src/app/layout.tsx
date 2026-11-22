@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
+import { Analytics } from '@vercel/analytics/next';
 import { MessageDialogHost } from '@/components/shared/message-dialog';
+import { TrafficTracker } from '@/components/shared/traffic-tracker';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { I18nProvider } from '@/lib/i18n';
 import './globals.css';
@@ -34,9 +36,11 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             <TooltipProvider delayDuration={200}>
               {children}
               <MessageDialogHost />
+              <TrafficTracker />
             </TooltipProvider>
           </I18nProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );

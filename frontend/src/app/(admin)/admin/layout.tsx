@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, LayoutDashboard, Link2, LogOut, Menu, Package, Palette, ShoppingBag, Sparkles } from 'lucide-react';
+import { BarChart3, ExternalLink, LayoutDashboard, Link2, LogOut, Menu, Package, Palette, ShoppingBag, Sparkles } from 'lucide-react';
 import { getStoredToken, adminSignOut } from '@/services/supabase';
 import { AdminContext } from '@/context/AdminContext';
 import { api, ApiError } from '@/services/api';
@@ -20,6 +20,7 @@ const NAV: { key: MessageKey; href: string; icon: typeof LayoutDashboard }[] = [
   { key: 'admin.nav.products', href: '/admin/products', icon: Package },
   { key: 'admin.nav.links', href: '/admin/links', icon: Link2 },
   { key: 'admin.nav.orders', href: '/admin/orders', icon: ShoppingBag },
+  { key: 'admin.nav.traffic', href: '/admin/traffic', icon: BarChart3 },
   { key: 'admin.nav.appearance', href: '/admin/appearance', icon: Palette },
 ];
 

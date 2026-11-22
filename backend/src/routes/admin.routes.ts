@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { analyticsRepository } from '../repositories/analytics.repository';
 import { z } from 'zod';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
@@ -35,6 +36,17 @@ adminRoutes.get('/analytics', async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Gagal memuat analitik';
     return c.json(errorResponse(message, 'ANALYTICS_ERROR'), 500);
+  }
+});
+
+// --- Traffic (first-party page views & clicks) ---
+adminRoutes.get('/traffic', async (c) => {
+  const days = [1, 7, 30, 90].includes(Number(c.req.query('days'))) ? Number(c.req.query('days')) : 7;
+  try {
+    return c.json(successResponse(await analyticsRepository.summary(days)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gagal memuat trafik';
+    return c.json(errorResponse(message, 'TRAFFIC_ERROR'), 500);
   }
 });
 

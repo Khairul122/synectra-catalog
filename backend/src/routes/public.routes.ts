@@ -10,6 +10,8 @@ import { profileRepository } from '../repositories/profile.repository';
 import type { Profile } from '../types';
 import { successResponse, errorResponse } from '../utils/response';
 import type { AppEnv } from '../types';
+import { z } from 'zod';
+import { analyticsRepository } from '../repositories/analytics.repository';
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -63,6 +65,50 @@ publicRoutes.get('/catalog', async (c) => {
   const category = c.req.query('category');
   const catalog = await catalogService.getCatalog(category);
   return c.json(successResponse(catalog));
+});
+
+// POST /api/track: first-party page view / click log for the admin Traffic page.
+const trackSchema = z.object({
+  type: z.enum(['pageview', 'click']),
+  path: z.string().max(500),
+  label: z.string().max(120).optional(),
+  target: z.string().max(500).optional(),
+  referrer: z.string().max(500).optional(),
+});
+const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse/i;
+
+publicRoutes.use('/track', rateLimit({ windowMs: 60_000, max: 120 }));
+publicRoutes.post('/track', async (c) => {
+  const parsed = trackSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.body(null, 400);
+  const ua = c.req.header('user-agent') ?? '';
+  if (BOT_UA.test(ua)) return c.body(null, 204);
+
+  // Vercel geolocation headers; city arrives URI-encoded.
+  const city = c.req.header('x-vercel-ip-city');
+  let referrer: string | null = null;
+  try {
+    const host = parsed.data.referrer ? new URL(parsed.data.referrer).hostname : '';
+    // Internal navigation is not a traffic source.
+    if (host && host !== new URL(c.req.url).hostname) referrer = host;
+  } catch {
+    // Malformed referrer: drop it.
+  }
+
+  try {
+    await analyticsRepository.insert({
+      ...parsed.data,
+      referrer,
+      ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip') || null,
+      country: c.req.header('x-vercel-ip-country') || null,
+      city: city ? decodeURIComponent(city) : null,
+      user_agent: ua.slice(0, 300) || null,
+    });
+  } catch (error) {
+    // Tracking must never break the page; log and move on.
+    console.error(error);
+  }
+  return c.body(null, 204);
 });
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;

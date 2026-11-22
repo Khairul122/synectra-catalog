@@ -1,4 +1,4 @@
-import type { Profile, Link, Product, Order, OrderStatus, AdminAnalytics, CheckoutPayload, Member, MemberMe, MemberOrder } from '@/types';
+import type { Profile, Link, Product, Order, OrderStatus, AdminAnalytics, TrafficSummary, CheckoutPayload, Member, MemberMe, MemberOrder } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -92,6 +92,14 @@ export const api = {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await handleResponse<{ data: AdminAnalytics }>(res);
+    return data.data;
+  },
+
+  async adminGetTraffic(token: string, days: number): Promise<TrafficSummary> {
+    const res = await fetch(`${API_BASE}/admin/traffic?days=${days}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await handleResponse<{ data: TrafficSummary }>(res);
     return data.data;
   },
 

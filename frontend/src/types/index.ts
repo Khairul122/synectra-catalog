@@ -105,6 +105,35 @@ export interface AdminAnalytics {
   failedOrdersCount: number;
 }
 
+export interface TrafficEvent {
+  id: number;
+  type: 'pageview' | 'click';
+  path: string;
+  label: string | null;
+  target: string | null;
+  referrer: string | null;
+  ip: string | null;
+  country: string | null;
+  city: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export type TrafficCount = { key: string; count: number };
+
+export interface TrafficSummary {
+  days: number;
+  pageviews: number;
+  clicks: number;
+  visitors: number;
+  daily: { date: string; pageviews: number; clicks: number }[];
+  topPages: TrafficCount[];
+  topClicks: TrafficCount[];
+  countries: TrafficCount[];
+  referrers: TrafficCount[];
+  recent: TrafficEvent[];
+}
+
 export interface Member {
   name: string | null;
   phone: string | null;
