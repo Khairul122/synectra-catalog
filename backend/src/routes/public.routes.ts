@@ -11,7 +11,7 @@ import type { Profile } from '../types';
 import { successResponse, errorResponse } from '../utils/response';
 import type { AppEnv } from '../types';
 import { z } from 'zod';
-import { analyticsRepository } from '../repositories/analytics.repository';
+import { analyticsRepository, RETENTION_DAYS } from '../repositories/analytics.repository';
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -104,6 +104,8 @@ publicRoutes.post('/track', async (c) => {
       city: city ? decodeURIComponent(city) : null,
       user_agent: ua.slice(0, 300) || null,
     });
+    // ponytail: probabilistic cleanup (~1 in 200 events) instead of a cron job; use pg_cron if exact timing matters.
+    if (Math.random() < 0.005) await analyticsRepository.deleteOlderThan(RETENTION_DAYS);
   } catch (error) {
     // Tracking must never break the page; log and move on.
     console.error(error);

@@ -29,6 +29,9 @@ export interface TrafficSummary {
   recent: AnalyticsEvent[];
 }
 
+// Events older than this are deleted: limits spam buildup and how long IPs (personal data) are kept.
+export const RETENTION_DAYS = 90;
+
 // ponytail: aggregates in JS over at most MAX_ROWS events. Move to SQL views/RPC once traffic outgrows it.
 const MAX_ROWS = 20_000;
 
@@ -42,6 +45,12 @@ export class AnalyticsRepository {
   async insert(event: AnalyticsEventInput): Promise<void> {
     const { error } = await supabaseAdmin.from('analytics_events').insert(event);
     if (error) throw new Error(`AnalyticsRepository.insert failed: ${error.message}`);
+  }
+
+  async deleteOlderThan(days: number): Promise<void> {
+    const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+    const { error } = await supabaseAdmin.from('analytics_events').delete().lt('created_at', cutoff);
+    if (error) throw new Error(`AnalyticsRepository.deleteOlderThan failed: ${error.message}`);
   }
 
   async summary(days: number): Promise<TrafficSummary> {
